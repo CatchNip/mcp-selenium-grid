@@ -1,0 +1,34 @@
+# .dockerignore for MCP Selenium Grid
+# Ignore files and folders not needed in the Docker image
+
+.git
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+*.coverage
+.pytest_cache/
+.nox/
+.tox/
+.venv/
+.uv/
+htmlcov/
+tests/
+src/tests/
+*.egg-info/
+dist/
+build/
+README.md
+*.lock
+*.swp
+*.swo
+.env*
+
+# Ignore VSCode and editor files
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db

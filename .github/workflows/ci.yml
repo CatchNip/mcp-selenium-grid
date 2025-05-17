@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-python-package.yml
+    with:
+      python-version: 3.13
+      publish: 'false'
+
+  code-quality:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Read Python version
+        id: read_python_version
+        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ steps.read_python_version.outputs.python_version }}
+          install-dev: 'true'
+      - name: Ruff
+        run: uv pip install ruff && ruff src/ tests/
+      - name: Black
+        run: uv pip install black && black --check src/ tests/
+      - name: Mypy
+        run: uv pip install mypy && mypy src/
+
+  devsecops:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Read Python version
+        id: read_python_version
+        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ steps.read_python_version.outputs.python_version }}
+          install-dev: 'true'
+      - name: Bandit (code security)
+        run: uv pip install bandit && bandit -r src/ -x tests/
+      - name: Safety (dependency vulnerabilities)
+        run: uv pip install safety && safety check --full-report
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [build, code-quality, devsecops]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Read Python version
+        id: read_python_version
+        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ steps.read_python_version.outputs.python_version }}
+          install-dev: 'true'
+      - name: Run tests (pytest)
+        run: uv pip install pytest pytest-cov && pytest

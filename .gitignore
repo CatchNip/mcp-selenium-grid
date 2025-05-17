@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+*.manifest
+*.spec
+
+# Test and coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache/
+.nox/
+.tox/
+.pytest_cache/
+
+# Environment
+.env
+.env.*
+.venv/
+venv/
+.uv/
+
+# VSCode
+.vscode/
+.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Kubernetes
+*.kube/
+
+# Hatch/uv
+*.lock
+
+# Misc
+*.sqlite3
+*.db
+*.log
+
+# Ignore secrets
+secrets.*
+
+# Ignore safety and bandit reports
+safety-report.json
+bandit.json
+
+# Ignore Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Ignore mypy cache
+.mypy_cache/
+
+# Ignore Ruff cache
+.ruff_cache/
+
+# Ignore coverage reports
+coverage.xml
+
+# Ignore wheel files
+*.whl
+
+# Ignore test output
+junit-*.xml
+
+# Ignore temporary files
+*~
+*.swp
+*.swo

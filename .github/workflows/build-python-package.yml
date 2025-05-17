@@ -1,0 +1,37 @@
+name: Build Python Package
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        required: false
+        type: string
+      publish:
+        description: 'Whether to publish the package (true/false)'
+        required: false
+        default: 'false'
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Read Python version
+        id: read_python_version
+        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version != '' && inputs.python-version || steps.read_python_version.outputs.python_version }}
+      - name: Install uv
+        run: pip install uv
+      - name: Install build dependencies
+        run: uv pip install hatchling
+      - name: Build package
+        run: |
+          uv pip install .
+          hatchling build
+      # Optionally publish (not implemented here)

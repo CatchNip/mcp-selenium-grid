@@ -1,0 +1,21 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+# This workflow is intended to be run manually for releases.
+# It does not depend on CI passing, but it is recommended to only run after CI passes.
+
+jobs:
+  build-python-package:
+    uses: ./.github/workflows/build-python-package.yml
+    with:
+      publish: 'true'
+
+  build-docker-image:
+    uses: ./.github/workflows/build-docker-image.yml
+    with:
+      image-name: mcp-selenium:latest
+      context: .
+      dockerfile: src/deployment/docker/Dockerfile
+      push: 'true'

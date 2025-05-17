@@ -1,0 +1,151 @@
+# This file is the source of truth for Kubernetes deployment configuration for MCP Selenium Grid.
+# It is not used directly by the application code or CI/CD pipelines, but should be updated and versioned
+# to reflect the intended state of the cluster. Developers should manually apply or adapt this manifest
+# when deploying or updating the Kubernetes environment.
+#
+# Do not delete or ignore this file. Keep it up to date with all required environment variables and secrets.
+#
+# For more details, see the project README and documentation.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: selenium-grid
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: selenium-config
+  namespace: selenium-grid
+data:
+  SE_NODE_MAX_SESSIONS: "10"
+  SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
+  SELENIUM_HUB_PORT: "4444"
+  SELENIUM_HUB_BASE_URL: "http://localhost:4444"
+  MAX_BROWSER_INSTANCES: "5"
+  DEPLOYMENT_MODE: "kubernetes"
+  K8S_NAMESPACE: "selenium-grid"
+  ALLOWED_ORIGINS: "http://localhost:8000,http://localhost:3000"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-secrets
+  namespace: selenium-grid
+type: Opaque
+stringData:
+  API_TOKEN: "CHANGE_ME"
+  MCP_OAUTH_CLIENT_SECRET: "your-client-secret"
+  MCP_OAUTH_ISSUER: "https://your-domain"
+  MCP_OAUTH_CLIENT_ID: "your-client-id"
+  MCP_OAUTH_AUDIENCE: "your-audience"
+  SELENIUM_HUB_TOKEN_SECRET: "random-secret-key"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: selenium-hub
+  namespace: selenium-grid
+spec:
+  selector:
+    app: selenium-hub
+  ports:
+    - name: hub
+      port: 4444
+      targetPort: 4444
+    - name: publish
+      port: 4442
+      targetPort: 4442
+    - name: subscribe
+      port: 4443
+      targetPort: 4443
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: selenium-hub
+  namespace: selenium-grid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: selenium-hub
+  template:
+    metadata:
+      labels:
+        app: selenium-hub
+    spec:
+      containers:
+        - name: selenium-hub
+          image: selenium/hub:4.18.1
+          ports:
+            - containerPort: 4444
+            - containerPort: 4442
+            - containerPort: 4443
+          envFrom:
+            - configMapRef:
+                name: selenium-config
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /wd/hub/status
+              port: 4444
+            initialDelaySeconds: 30
+            periodSeconds: 15
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: selenium-grid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      containers:
+        - name: mcp-server
+          image: mcp-selenium:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: selenium-config
+            - secretRef:
+                name: mcp-secrets
+          env:
+            - name: DEPLOYMENT_MODE
+              value: "kubernetes"
+            - name: K8S_NAMESPACE
+              value: "selenium-grid"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
