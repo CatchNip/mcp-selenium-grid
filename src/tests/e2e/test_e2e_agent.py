@@ -1,7 +1,8 @@
 """End-to-end tests simulating an AI Agent using the MCP Server."""
 
 import pytest
-from .test_browser_workflow import create_browser, HTTP_201_CREATED, HTTP_200_OK
+
+from .test_browser_workflow import HTTP_200_OK, HTTP_201_CREATED, create_browser
 
 
 @pytest.mark.e2e

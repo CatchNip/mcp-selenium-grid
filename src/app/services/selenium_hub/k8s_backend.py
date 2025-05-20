@@ -1,6 +1,8 @@
 import logging
 from typing import Any
+
 from kubernetes.client.rest import ApiException
+
 from .backend import HubBackend
 
 K8S_NOT_FOUND = 404

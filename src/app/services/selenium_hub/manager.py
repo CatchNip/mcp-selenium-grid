@@ -1,6 +1,6 @@
+from .backend import HubBackend
 from .docker_backend import DockerHubBackend
 from .k8s_backend import KubernetesHubBackend
-from .backend import HubBackend
 
 
 class SeleniumHubManager:

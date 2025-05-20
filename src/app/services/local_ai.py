@@ -1,7 +1,8 @@
 """LocalAI service for testing without API keys."""
 
-import httpx
 from typing import Optional
+
+import httpx
 
 
 class LocalAI:

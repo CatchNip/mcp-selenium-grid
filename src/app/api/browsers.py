@@ -1,12 +1,13 @@
 """Browser management endpoints for MCP Server."""
 
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..auth.oauth import verify_token
-from ..services.selenium_hub import SeleniumHub
 from ..core.settings import settings
+from ..services.selenium_hub import SeleniumHub
 
 router = APIRouter()
 

@@ -1,7 +1,9 @@
 """Integration tests using LocalAI for real prompt testing."""
 
-import pytest
 import asyncio
+
+import pytest
+
 from app.services.local_ai import LocalAI
 
 HTTP_200_OK = 200

@@ -1,7 +1,8 @@
 """Token authentication for MCP Server."""
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from ..core.settings import settings
 
 # HTTP Bearer token setup

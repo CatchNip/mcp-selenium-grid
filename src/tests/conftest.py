@@ -1,14 +1,16 @@
 """Pytest configuration file."""
 
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 import time
-from fastapi.testclient import TestClient
-from authlib.jose.errors import ExpiredTokenError, InvalidClaimError
-from testcontainers.selenium import BrowserWebDriverContainer
-from testcontainers.core.container import DockerContainer
-from app.main import app
 from typing import Optional
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from authlib.jose.errors import ExpiredTokenError, InvalidClaimError
+from fastapi.testclient import TestClient
+from testcontainers.core.container import DockerContainer
+from testcontainers.selenium import BrowserWebDriverContainer
+
+from app.main import app
 
 
 # Mock class for Docker client
@@ -172,8 +174,9 @@ def e2e_auth_headers():
 @pytest.fixture(scope="session")
 def client():
     """Create a test client for the FastAPI app with dependency override for verify_token."""
-    from app.auth import oauth
     from fastapi.testclient import TestClient
+
+    from app.auth import oauth
 
     async def always_valid_token(token: Optional[str] = None):
         return {"sub": "test-agent"}

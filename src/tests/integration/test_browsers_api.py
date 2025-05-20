@@ -1,8 +1,9 @@
 """Test suite for MCP browser endpoints."""
 
-import pytest
-import docker
 import logging
+
+import docker
+import pytest
 
 HTTP_201_CREATED = 201
 HTTP_200_OK = 200

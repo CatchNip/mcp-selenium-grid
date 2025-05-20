@@ -1,10 +1,11 @@
 """Core settings for MCP Server."""
 
+import os
 from typing import List, Optional
+
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import os
-from dotenv import load_dotenv
 
 # Explicitly load the correct .env file before any settings are read
 env_file = ".env.test" if os.getenv("TESTING") else ".env"

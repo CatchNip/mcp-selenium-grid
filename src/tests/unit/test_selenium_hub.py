@@ -1,9 +1,10 @@
 """Unit tests for SeleniumHub service."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from docker.errors import NotFound
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from docker.errors import NotFound
 
 from app.services.selenium_hub import SeleniumHub
 

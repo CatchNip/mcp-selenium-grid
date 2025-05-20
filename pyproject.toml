@@ -79,6 +79,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 extend-select = [
+    "I",     # Import sorting
     "S",    # Bandit rules
     "ASYNC", # Async-related checks
     "RUF",  # Ruff-specific rules

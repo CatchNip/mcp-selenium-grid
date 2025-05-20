@@ -1,14 +1,15 @@
 """MCP Server for managing Selenium Grid instances."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from fastapi_mcp import FastApiMCP
 
 from .api import browsers
 from .core.settings import settings
-from .services.selenium_hub.selenium_hub import SeleniumHub
 from .services.selenium_hub.manager import SeleniumHubManager
+from .services.selenium_hub.selenium_hub import SeleniumHub
 
 HTTP_500_INTERNAL_SERVER_ERROR = 500
 
