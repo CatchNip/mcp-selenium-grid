@@ -20,23 +20,23 @@ authors = [
 dependencies = [
     "fastapi[standard]>=0.111.0", # Web framework
     "fastapi-mcp>=0.3.4", # MCP integration for FastAPI
-    "uvicorn[standard]>=0.29.0", # ASGI server with extra features
     "pydantic[email]>=2.7.3", # Data validation, email support
     "pydantic-settings>=2.2.1", # Settings management (latest is 2.2.1)
-    "python-multipart>=0.0.9", # Form parsing for FastAPI (latest is 0.0.9)
-    "authlib>=1.3.1", # OAuth 2.1 and JOSE
-    "httpx[http2]>=0.27.0", # Async HTTP client, HTTP/2 support (latest is 0.27.0)
     "docker>=7.1.0", # Docker API client
     "kubernetes>=30.2.0", # Kubernetes API client
-    "selenium>=4.21.0", # Selenium WebDriver
-    "cryptography>=42.0.8", # Cryptographic primitives
-    "certifi>=2024.2.2", # CA certificates (latest is 2024.2.2)
-    "environ-config>=24.1.0", # Environment variable parsing (latest is 24.1.0)
-    "secure>=0.3.0", # Security headers for FastAPI (latest is 0.3.0)
     "prometheus-client>=0.20.0", # Prometheus metrics (latest is 0.20.0)
     "prometheus-fastapi-instrumentator>=7.1.0", # FastAPI Prometheus integration
-    "psutil>=5.9.8", # System resource monitoring (latest is 5.9.8) # .env file support for settings
     "python-dotenv>=1.0.1",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "black>=24.4.2",
+    "ruff>=0.4.4",
+    "mypy>=1.10.0",
+    "bandit>=1.7.8", # Security linter (latest is 1.7.8) # Dependency vulnerability checking
+    "safety>=3.2.0",
+    "pre-commit>=4.2.0",
 ]
 
 [project.optional-dependencies]
@@ -54,15 +54,6 @@ test = [
     "pytest-env>=1.1.4", # Set environment variables for pytest # Testcontainers for integration/E2E tests
     "testcontainers[selenium]>=4.4.0",
     "pytest-pythonpath>=0.7.3",
-]
-
-dev = [
-    "black>=24.4.2",
-    "ruff>=0.4.4",
-    "mypy>=1.10.0",
-    "bandit>=1.7.8", # Security linter (latest is 1.7.8) # Dependency vulnerability checking
-    "safety>=3.2.0",
-    "pre-commit>=4.2.0",
 ]
 
 [build-system]
@@ -102,8 +93,7 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 
 [tool.pytest.ini_options]
-testpaths = ["src/tests/unit"]
-pythonpath = "src/app"
+testpaths = ["src/tests"]
 python_files = ["test_*.py"]
 addopts = """
     -v
@@ -120,6 +110,7 @@ markers = [
     "unit: marks tests as unit tests",
 ]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
 log_cli = true
 log_cli_level = "INFO"
 
@@ -159,6 +150,3 @@ skips = ["B101"]  # Skip assert statements in tests
 [tool.safety]
 ignore_cvss_severity_below = 7  # Only high and critical vulnerabilities
 ignore_unknown_severity = false
-
-[tool.poetry.dependencies]
-pydantic = "^2.6.4"

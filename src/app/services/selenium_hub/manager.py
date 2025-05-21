@@ -26,8 +26,3 @@ class SeleniumHubManager:
         if hasattr(self.backend, "create_browsers"):
             return await self.backend.create_browsers(count, browser_type, browser_configs)
         raise NotImplementedError("Backend does not implement create_browsers")
-
-    async def get_browser_status(self, browser_id: str) -> dict:
-        if hasattr(self.backend, "get_browser_status"):
-            return await self.backend.get_browser_status(browser_id)
-        raise NotImplementedError("Backend does not implement get_browser_status")

@@ -1,16 +1,15 @@
 """Pytest configuration file."""
 
-import time
+import logging
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import docker
 import pytest
+from app.main import app
 from authlib.jose.errors import ExpiredTokenError, InvalidClaimError
 from fastapi.testclient import TestClient
-from testcontainers.core.container import DockerContainer
 from testcontainers.selenium import BrowserWebDriverContainer
-
-from app.main import app
 
 
 # Mock class for Docker client
@@ -174,14 +173,13 @@ def e2e_auth_headers():
 @pytest.fixture(scope="session")
 def client():
     """Create a test client for the FastAPI app with dependency override for verify_token."""
+    from app.dependencies import verify_token
     from fastapi.testclient import TestClient
-
-    from app.auth import oauth
 
     async def always_valid_token(token: Optional[str] = None):
         return {"sub": "test-agent"}
 
-    app.dependency_overrides[oauth.verify_token] = always_valid_token
+    app.dependency_overrides[verify_token] = always_valid_token
     return TestClient(app)
 
 
@@ -203,11 +201,20 @@ def selenium_container():
         yield container
 
 
-@pytest.fixture(scope="session")
-def localai_container():
-    """Spin up a LocalAI container for E2E/AI tests."""
-    with DockerContainer("localai/localai:latest") as container:
-        container.with_exposed_ports(8080)
-        container.start()
-        time.sleep(5)  # Wait for LocalAI to be ready
-        yield container
+@pytest.fixture
+def cleanup_docker_browsers():
+    """Cleanup Docker containers created by browser tests after each test."""
+    client = docker.from_env()
+    before = {c.id for c in client.containers.list(all=True)}
+    yield
+    after = {c.id for c in client.containers.list(all=True)}
+    new = after - before
+    for cid in new:
+        try:
+            container = client.containers.get(cid)
+            image = getattr(container.image, "tags", [])
+            # Remove if container image is a Selenium browser node
+            if any(tag.startswith("selenium/node-") for tag in image):
+                container.remove(force=True)
+        except Exception:
+            logging.exception("Exception occurred while cleaning up container")

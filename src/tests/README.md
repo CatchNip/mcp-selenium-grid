@@ -23,7 +23,7 @@ tests/
 **Run unit tests:**
 
 ```bash
-uv run pytest src/tests/unit/
+uv run pytest
 ```
 
 ### Integration Tests
@@ -34,7 +34,7 @@ uv run pytest src/tests/unit/
 **Run integration tests:**
 
 ```bash
-uv run pytest src/tests/integration/
+uv run pytest -m integration
 ```
 
 ### End-to-End (E2E) Tests
@@ -46,7 +46,7 @@ uv run pytest src/tests/integration/
 **Run E2E tests:**
 
 ```bash
-uv run pytest src/tests/e2e/
+uv run pytest -m e2e
 ```
 
 ## Running All Tests
@@ -62,33 +62,6 @@ Or, with coverage:
 ```bash
 uv run pytest src/tests/ --cov=app --cov-report=term-missing
 ```
-
-## Running by Marker
-
-Tests are marked for convenience. You can run specific types using markers:
-
-- **Unit:**
-
-  ```bash
-  uv run pytest -m unit
-  ```
-
-- **Integration:**
-
-  ```bash
-  uv run pytest -m integration
-  ```
-
-- **E2E:**
-
-  ```bash
-  uv run pytest -m e2e
-  ```
-
-## Environment Variables
-
-- There is currently NO code that checks for `RUN_E2E_TESTS`. Setting this variable has no effect on test selection or skipping. All E2E tests will run if you invoke pytest on the e2e directory or use the `e2e` marker.
-- If you want to add conditional skipping based on environment variables, see the pytest documentation for `pytest.mark.skipif`.
 
 ## Test Coverage
 

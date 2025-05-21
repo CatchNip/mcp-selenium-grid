@@ -1,8 +1,5 @@
 """Test suite for MCP browser endpoints."""
 
-import logging
-
-import docker
 import pytest
 
 HTTP_201_CREATED = 201
@@ -11,27 +8,9 @@ HTTP_422_UNPROCESSABLE_ENTITY = 422
 EXPECTED_BROWSER_COUNT = 2
 
 
-@pytest.fixture(autouse=True)
-def cleanup_docker_browsers():
-    """Cleanup Docker containers created by browser tests after each test."""
-    client = docker.from_env()
-    before = {c.id for c in client.containers.list(all=True)}
-    yield
-    after = {c.id for c in client.containers.list(all=True)}
-    new = after - before
-    for cid in new:
-        try:
-            container = client.containers.get(cid)
-            image = getattr(container.image, "tags", [])
-            # Remove if container image is a Selenium browser node
-            if any(tag.startswith("selenium/node-") for tag in image):
-                container.remove(force=True)
-        except Exception:
-            logging.exception("Exception occurred while cleaning up container")
-
-
 @pytest.mark.asyncio
 @pytest.mark.integration
+@pytest.mark.usefixtures("cleanup_docker_browsers")
 async def test_create_browsers_endpoint(client, auth_headers):
     """Test browser creation endpoint."""
     response = client.post(
@@ -49,6 +28,7 @@ async def test_create_browsers_endpoint(client, auth_headers):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
+@pytest.mark.usefixtures("cleanup_docker_browsers")
 async def test_create_browsers_validates_count(client, auth_headers):
     """Test browser count validation."""
     response = client.post(
@@ -62,6 +42,7 @@ async def test_create_browsers_validates_count(client, auth_headers):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
+@pytest.mark.usefixtures("cleanup_docker_browsers")
 async def test_create_browsers_validates_type(client, auth_headers):
     """Test browser type validation."""
     response = client.post(

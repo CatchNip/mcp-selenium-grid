@@ -4,9 +4,8 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from docker.errors import NotFound
-
 from app.services.selenium_hub import SeleniumHub
+from docker.errors import NotFound
 
 
 @pytest.fixture
@@ -33,7 +32,8 @@ def mock_docker_client():
 @pytest.fixture
 def selenium_hub(mock_docker_client):
     with patch(
-        "app.services.selenium_hub.docker_backend.docker.from_env", return_value=mock_docker_client
+        "app.services.selenium_hub.docker_backend.docker.from_env",
+        return_value=mock_docker_client,
     ):
         hub = SeleniumHub()
 
@@ -45,7 +45,7 @@ def selenium_hub(mock_docker_client):
 
 
 @pytest.fixture
-def selenium_hub_k8s(monkeypatch):
+def selenium_hub_k8s(mock_docker_client, monkeypatch):
     # Patch settings to use kubernetes
     from app.core import settings as core_settings
 
@@ -56,11 +56,13 @@ def selenium_hub_k8s(monkeypatch):
         patch("kubernetes.config.load_kube_config"),
         patch("kubernetes.client.CoreV1Api") as core_api_cls,
         patch("kubernetes.client.AppsV1Api") as apps_api_cls,
+        patch("app.services.selenium_hub.docker_backend.docker.from_env") as docker_from_env,
     ):
         core_api = MagicMock()
         apps_api = MagicMock()
         core_api_cls.return_value = core_api
         apps_api_cls.return_value = apps_api
+        docker_from_env.return_value = mock_docker_client
         hub = SeleniumHub()
 
         async def mock_generate_id():
@@ -78,7 +80,7 @@ def test_ensure_docker_hub_creates_network(selenium_hub):
 
 
 @pytest.mark.unit
-def test_ensure_docker_hub_restarts_stopped_hub(selenium_hub, mock_docker_client):
+def test_ensure_docker_hub_restarts_stopped_hub(selenium_hub):
     # Only test the public interface and that ensure_hub_running returns True
     result = asyncio.run(selenium_hub.ensure_hub_running())
     assert result is True
@@ -95,10 +97,7 @@ def test_create_docker_browser(selenium_hub):
     assert isinstance(browser_ids[0], str)
 
 
-# Remove or skip tests that access _ensure_k8s_hub, k8s_core, k8s_apps, or private methods directly
-# (Old skipped K8s tests removed; replaced by new public-API-based K8s tests above)
-
-
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_create_browsers_validates_type(selenium_hub):
     """Test browser type validation."""
@@ -107,6 +106,7 @@ async def test_create_browsers_validates_type(selenium_hub):
     assert "Unsupported browser type: invalid" in str(excinfo.value)
 
 
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_create_browsers_validates_count(selenium_hub):
     """Test browser count validation."""
@@ -115,21 +115,19 @@ async def test_create_browsers_validates_count(selenium_hub):
     assert "Browser count must be positive" in str(excinfo.value)
 
 
+@pytest.mark.unit
 @pytest.mark.asyncio
-async def test_create_browsers_handles_max_instances(selenium_hub):
+async def test_create_browsers_handles_max_instances(selenium_hub, monkeypatch):
     """Test handling max browser instances limit."""
-    from app.core.settings import settings
+    monkeypatch.setattr("app.core.settings.settings.MAX_BROWSER_INSTANCES", 1)
 
-    old_value = settings.MAX_BROWSER_INSTANCES
-    settings.MAX_BROWSER_INSTANCES = 1
-    try:
-        with pytest.raises(ValueError) as excinfo:
-            await selenium_hub.create_browsers(browser_type="chrome", count=2)
-        assert "Maximum browser instances exceeded" in str(excinfo.value)
-    finally:
-        settings.MAX_BROWSER_INSTANCES = old_value
+    with pytest.raises(ValueError) as excinfo:
+        await selenium_hub.create_browsers(browser_type="chrome", count=2)
+
+    assert "Maximum browser instances exceeded" in str(excinfo.value)
 
 
+@pytest.mark.unit
 def test_ensure_k8s_hub_creates_namespace(selenium_hub_k8s):
     from kubernetes.client.rest import ApiException
 
@@ -146,6 +144,7 @@ def test_ensure_k8s_hub_creates_namespace(selenium_hub_k8s):
     assert core_api.create_namespaced_service.called
 
 
+@pytest.mark.unit
 def test_create_k8s_browser(selenium_hub_k8s):
     hub, core_api, _ = selenium_hub_k8s
     hub.ensure_hub_running = AsyncMock(return_value=True)

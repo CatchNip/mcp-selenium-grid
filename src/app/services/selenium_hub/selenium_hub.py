@@ -2,8 +2,9 @@
 
 import asyncio
 
-from ...core.settings import settings
-from ..metrics import track_browser_metrics, track_hub_metrics
+from app.core.settings import settings
+from app.services.metrics import track_browser_metrics, track_hub_metrics
+
 from .manager import SeleniumHubManager
 
 
@@ -48,10 +49,6 @@ class SeleniumHub:
                 f"Maximum browser instances exceeded: {count} > {settings.MAX_BROWSER_INSTANCES}"
             )
         return await self.manager.create_browsers(count, browser_type, self.browser_configs)
-
-    async def get_browser_status(self, browser_id: str) -> dict:
-        """Get status for a specific browser instance."""
-        return await self.manager.get_browser_status(browser_id)
 
     @staticmethod
     async def _generate_id() -> str:

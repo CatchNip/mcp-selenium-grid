@@ -3,11 +3,12 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
-from ..auth.oauth import verify_token
-from ..core.settings import settings
-from ..services.selenium_hub import SeleniumHub
+from app.core.settings import settings
+from app.dependencies import verify_token
+from app.services.selenium_hub import SeleniumHub
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ HTTP_500_INTERNAL_SERVER_ERROR = 500
     status_code=HTTP_201_CREATED,
 )
 async def create_browsers(
-    request: BrowserRequest, claims: dict = Depends(verify_token)
+    request: BrowserRequest, credentials: HTTPBasicCredentials = Depends(verify_token)
 ) -> BrowserResponse:
     """Create browser instances in Selenium Grid."""
     if settings.MAX_BROWSER_INSTANCES and request.count > settings.MAX_BROWSER_INSTANCES:
@@ -64,7 +65,7 @@ async def create_browsers(
     "/browsers/status",
     response_model=dict,
 )
-async def get_hub_status(claims: dict = Depends(verify_token)) -> dict:
+async def get_hub_status(credentials: HTTPBasicCredentials = Depends(verify_token)) -> dict:
     """Get Selenium Grid status."""
     hub = SeleniumHub()
     is_running = await hub.ensure_hub_running()

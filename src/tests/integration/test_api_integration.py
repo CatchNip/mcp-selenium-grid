@@ -7,6 +7,7 @@ HTTP_200_OK = 200
 HTTP_422_UNPROCESSABLE_ENTITY = 422
 
 
+@pytest.mark.usefixtures("cleanup_docker_browsers")
 @pytest.mark.integration
 def test_create_browsers_endpoint(client, auth_headers):
     response = client.post(

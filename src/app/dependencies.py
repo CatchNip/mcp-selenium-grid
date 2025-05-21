@@ -3,7 +3,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from ..core.settings import settings
+from app.core.settings import settings
 
 # HTTP Bearer token setup
 security = HTTPBearer()

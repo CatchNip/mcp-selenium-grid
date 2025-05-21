@@ -21,7 +21,6 @@ src/tests/
 *.egg-info/
 dist/
 build/
-README.md
 *.lock
 *.swp
 *.swo

@@ -32,7 +32,13 @@ class Settings(BaseSettings):
     MAX_BROWSER_INSTANCES: Optional[int] = None
 
     # Deployment Settings
-    DEPLOYMENT_MODE: str = "docker"  # or "kubernetes"
+    # If the server is running in Docker, we can't use docker to manage the hub
+    # and nodes, so we need to use Kubernetes instead.
+    if os.getenv("IS_RUNNING_IN_DOCKER", "true"):
+        DEPLOYMENT_MODE: str = "kubernetes"
+    else:
+        DEPLOYMENT_MODE: str = "docker"
+
     K8S_NAMESPACE: str = "selenium-grid"
 
     # Security Settings
