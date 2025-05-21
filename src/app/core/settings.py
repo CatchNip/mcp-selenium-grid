@@ -1,15 +1,21 @@
 """Core settings for MCP Server."""
 
-import os
+from os import getenv
 from typing import List, Optional
 
 from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Explicitly load the correct .env file before any settings are read
-env_file = ".env.test" if os.getenv("TESTING") else ".env"
-load_dotenv(dotenv_path=env_file, override=False)
+from app.core.env_helpers import getenv_as_bool
+
+if getenv_as_bool("TESTING"):
+    # If we are testing, variables are already loaded using pyproject.toml
+    env_file = ""
+else:
+    # Explicitly load the correct .env file before any settings are read
+    env_file = ".env.dev" if getenv_as_bool("DEVELOPMENT") else ".env"
+    load_dotenv(dotenv_path=env_file, override=False)
 
 
 class Settings(BaseSettings):
@@ -34,7 +40,7 @@ class Settings(BaseSettings):
     # Deployment Settings
     # If the server is running in Docker, we can't use docker to manage the hub
     # and nodes, so we need to use Kubernetes instead.
-    if os.getenv("IS_RUNNING_IN_DOCKER", "true"):
+    if getenv_as_bool("IS_RUNNING_IN_DOCKER"):
         DEPLOYMENT_MODE: str = "kubernetes"
     else:
         DEPLOYMENT_MODE: str = "docker"
@@ -48,13 +54,13 @@ class Settings(BaseSettings):
     )
 
     # API Token
-    API_TOKEN: str = os.getenv("API_TOKEN", "CHANGE_ME")
+    API_TOKEN: str = getenv("API_TOKEN", "CHANGE_ME")
 
     @classmethod
     def get_cors_origins(cls, v=None) -> List[str]:
         """Get CORS origins from environment variable."""
         if v is None:
-            v = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000")
+            v = getenv("ALLOWED_ORIGINS", "http://localhost:8000")
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v or []

@@ -3,7 +3,7 @@ FROM python:3.13-slim-bullseye
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    IS_RUNNING_IN_DOCKER=true
+    IS_RUNNING_IN_DOCKER=True
 
 # Install uv.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
