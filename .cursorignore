@@ -1,0 +1,39 @@
+# Cursor ignore file
+
+# Environment variables
+.env
+.env.*
+
+# Virtual environments
+.venv/
+virt/ env/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Test and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.nox/
+.tox/
+
+# IDE and editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Package manager locks
+uv.lock
+
+# Cache files
+__pycache__/
+.mypy_cache/
+.ruff_cache/

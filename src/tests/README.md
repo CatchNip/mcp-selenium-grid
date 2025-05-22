@@ -23,13 +23,15 @@ tests/
 **Run unit tests:**
 
 ```bash
-uv run pytest
+uv run pytest -m unit
 ```
 
 ### Integration Tests
 
 - Test how components work together (e.g., API endpoints, service interactions).
-- External services (Docker, Kubernetes) are mocked, but real app logic is used.
+- External services (Docker, Kubernetes) are mocked.
+- External services (Docker, Kubernetes) are not mocked at this level; these tests interact with the real infrastructure or test doubles that simulate it.
+- Fast and reliable.
 
 **Run integration tests:**
 

@@ -18,11 +18,7 @@ class SeleniumHubManager:
         self.backend.cleanup()
 
     async def ensure_hub_running(self, browser_configs: dict) -> bool:
-        if hasattr(self.backend, "ensure_hub_running"):
-            return await self.backend.ensure_hub_running(browser_configs)
-        raise NotImplementedError("Backend does not implement ensure_hub_running")
+        return await self.backend.ensure_hub_running(browser_configs)
 
     async def create_browsers(self, count: int, browser_type: str, browser_configs: dict) -> list:
-        if hasattr(self.backend, "create_browsers"):
-            return await self.backend.create_browsers(count, browser_type, browser_configs)
-        raise NotImplementedError("Backend does not implement create_browsers")
+        return await self.backend.create_browsers(count, browser_type, browser_configs)

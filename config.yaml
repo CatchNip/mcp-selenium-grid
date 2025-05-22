@@ -1,0 +1,30 @@
+development: true
+api_token: CHANGE_ME
+selenium_hub_port: 4444
+selenium_hub_base_url: http://localhost:4444
+selenium_node_max_sessions: 1
+max_browser_instances: 5
+deployment_mode: docker # or kubernetes
+#k8s_namespace: selenium-grid-dev
+allowed_origins:
+  - http://localhost:8000
+  - http://localhost:3000
+browser_configs:
+  chrome:
+    image: selenium/node-chrome:4.18.1
+    port: 4444
+    resources:
+      memory: 2G
+      cpu: 1
+  firefox:
+    image: selenium/node-firefox:4.18.1
+    port: 4444
+    resources:
+      memory: 2G
+      cpu: 1
+  edge:
+    image: selenium/node-edge:4.18.1
+    port: 4444
+    resources:
+      memory: 2G
+      cpu: 1

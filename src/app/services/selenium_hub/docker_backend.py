@@ -1,6 +1,7 @@
 import logging
 
 import docker
+from docker.errors import APIError, NotFound
 
 from .backend import HubBackend
 
@@ -11,74 +12,136 @@ class DockerHubBackend(HubBackend):
         self.settings = settings
 
     def cleanup(self) -> None:
+        """Clean up Selenium Hub container and network."""
+        # Remove selenium-hub container
         try:
+            logging.info("Attempting to remove selenium-hub container.")
             hub_container = self.client.containers.get("selenium-hub")
             hub_container.remove(force=True)
-        except Exception:
-            logging.exception("Exception occurred while removing selenium-hub container")
+            logging.info("Removed selenium-hub container.")
+        except NotFound:
+            logging.info("Selenium-hub container not found for removal.")
+        except APIError as e:
+            logging.error(f"Docker API error removing selenium-hub container: {e}")
+        except Exception as e:
+            logging.exception(f"Unexpected error removing selenium-hub container: {e}")
+
+        # Remove selenium-grid network
         try:
+            logging.info("Attempting to remove selenium-grid network.")
             net = self.client.networks.get("selenium-grid")
             net.remove()
-        except Exception:
-            logging.exception("Exception occurred while removing selenium-grid network")
+            logging.info("Removed selenium-grid network.")
+        except NotFound:
+            logging.info("Selenium-grid network not found for removal.")
+        except APIError as e:
+            logging.error(f"Docker API error removing selenium-grid network: {e}")
+        except Exception as e:
+            logging.exception(f"Unexpected error removing selenium-grid network: {e}")
 
     async def ensure_hub_running(self, browser_configs: dict) -> bool:
+        """Ensure the Selenium Grid network and Hub container are running."""
+
+        # Ensure network exists
         try:
-            try:
-                self.client.networks.get("selenium-grid")
-            except Exception:
-                self.client.networks.create("selenium-grid", driver="bridge")
-            try:
-                hub = self.client.containers.get("selenium-hub")
-                if hub.status != "running":
-                    hub.restart()
-            except Exception:
-                self.client.containers.run(
-                    "selenium/hub:4.18.1",
-                    name="selenium-hub",
-                    detach=True,
-                    network="selenium-grid",
-                    ports={
-                        f"{self.settings.SELENIUM_HUB_PORT}/tcp": self.settings.SELENIUM_HUB_PORT
-                    },
-                    environment={
-                        "SE_NODE_MAX_SESSIONS": str(self.settings.MAX_BROWSER_INSTANCES or 10),
-                        "SE_NODE_OVERRIDE_MAX_SESSIONS": "true",
-                    },
-                )
-            return True
+            self.client.networks.get("selenium-grid")
+            logging.info("Docker network 'selenium-grid' already exists.")
+        except NotFound:
+            logging.info("Docker network 'selenium-grid' not found, creating.")
+            self.client.networks.create("selenium-grid", driver="bridge")
+            logging.info("Docker network 'selenium-grid' created.")
+        except APIError as e:
+            logging.error(f"Docker API error ensuring network 'selenium-grid': {e}")
+            return False
         except Exception as e:
-            logging.error(f"Error ensuring Docker hub: {e}")
+            logging.exception(f"Unexpected error ensuring network 'selenium-grid': {e}")
             return False
 
-    async def create_browsers(self, count: int, browser_type: str, browser_configs: dict) -> list:
-        config = browser_configs[browser_type]
-        browser_ids = []
-        for _ in range(count):
-            try:
-                self.client.images.get(config["image"])
-            except Exception as e:
-                if "No such image" in str(e) or "not found" in str(e).lower():
-                    self.client.images.pull(config["image"])
-                else:
-                    raise
-            container = self.client.containers.run(
-                config["image"],
+        # Ensure Hub container is running
+        try:
+            hub = self.client.containers.get("selenium-hub")
+            if hub.status != "running":
+                logging.info("Selenium-hub container found but not running, restarting.")
+                hub.restart()
+                logging.info("Selenium-hub container restarted.")
+            else:
+                logging.info("Selenium-hub container is already running.")
+        except NotFound:
+            logging.info("Selenium-hub container not found, creating.")
+            self.client.containers.run(
+                "selenium/hub:4.18.1",
+                name="selenium-hub",
                 detach=True,
                 network="selenium-grid",
+                ports={f"{self.settings.SELENIUM_HUB_PORT}/tcp": self.settings.SELENIUM_HUB_PORT},
                 environment={
                     "SE_EVENT_BUS_HOST": "selenium-hub",
                     "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                     "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
-                    "SE_NODE_MAX_SESSIONS": "1",
+                    "SE_NODE_MAX_SESSIONS": str(self.settings.MAX_BROWSER_INSTANCES or 10),
+                    "SE_NODE_OVERRIDE_MAX_SESSIONS": "true",
                 },
-                mem_limit=config["resources"]["memory"],
-                cpu_count=int(float(config["resources"]["cpu"])),
             )
-            cid = getattr(container, "id", None)
-            if not cid:
-                raise RuntimeError("Failed to start browser container or retrieve container ID.")
-            browser_ids.append(cid[:12])
+            logging.info("Selenium-hub container created and started.")
+        except APIError as e:
+            logging.error(f"Docker API error ensuring selenium-hub container: {e}")
+            return False
+        except Exception as e:
+            logging.exception(f"Unexpected error ensuring selenium-hub container: {e}")
+            return False
+
+        return True
+
+    async def create_browsers(self, count: int, browser_type: str, browser_configs: dict) -> list:
+        """Create the requested number of Selenium browser containers."""
+        config = browser_configs[browser_type]
+        browser_ids = []
+        for _ in range(count):
+            # Ensure image exists, pull if necessary
+            try:
+                self.client.images.get(config["image"])
+                logging.info(f"Docker image {config['image']} already exists.")
+            except NotFound:
+                logging.info(f"Docker image {config['image']} not found, pulling.")
+                self.client.images.pull(config["image"])
+                logging.info(f"Docker image {config['image']} pulled.")
+            except APIError as e:
+                logging.error(f"Docker API error ensuring image {config['image']}: {e}")
+                # Depending on requirements, might raise or skip this browser
+                continue  # Skip this browser creation on image error
+            except Exception as e:
+                logging.exception(f"Unexpected error ensuring image {config['image']}: {e}")
+                continue  # Skip this browser creation on unexpected error
+
+            # Create and run container
+            try:
+                logging.info(f"Creating container for browser type {browser_type}.")
+                container = self.client.containers.run(
+                    config["image"],
+                    detach=True,
+                    network="selenium-grid",
+                    environment={
+                        "SE_EVENT_BUS_HOST": "selenium-hub",
+                        "SE_EVENT_BUS_PUBLISH_PORT": "4442",
+                        "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
+                        "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS or 1),
+                    },
+                    mem_limit=config["resources"]["memory"],
+                    cpu_count=int(float(config["resources"]["cpu"])),
+                )
+                cid = getattr(container, "id", None)
+                if not cid:
+                    logging.error("Failed to start browser container or retrieve container ID.")
+                    continue  # Skip if container start failed
+                browser_ids.append(cid[:12])
+                logging.info(f"Created container with ID: {cid[:12]}")
+            except APIError as e:
+                logging.error(f"Docker API error creating container for {browser_type}: {e}")
+                continue  # Skip this browser creation on API error
+            except Exception as e:
+                logging.exception(f"Unexpected error creating container for {browser_type}: {e}")
+                continue  # Skip this browser creation on unexpected error
+
         return browser_ids
 
     async def get_browser_status(self, browser_id: str) -> dict:
@@ -87,13 +150,21 @@ class DockerHubBackend(HubBackend):
             container = self.client.containers.get(browser_id)
             container.reload()
             image_tag = None
-            if getattr(container, "image", None) and getattr(container.image, "tags", None):
-                image_tag = container.image.tags[0] if container.image.tags else None
+            image = getattr(container, "image", None)
+            if image and getattr(image, "tags", None):
+                image_tag = image.tags[0] if image.tags else None
             return {
                 "id": getattr(container, "id", "")[:12],
                 "status": getattr(container, "status", None),
                 "name": getattr(container, "name", None),
                 "image": image_tag,
             }
-        except Exception:
+        except NotFound:
+            logging.info(f"Browser container with ID {browser_id} not found.")
             return {"status": "not found"}
+        except APIError as e:
+            logging.error(f"Docker API error getting status for {browser_id}: {e}")
+            return {"status": "error", "message": str(e)}
+        except Exception as e:
+            logging.exception(f"Unexpected error getting status for {browser_id}: {e}")
+            return {"status": "error", "message": str(e)}

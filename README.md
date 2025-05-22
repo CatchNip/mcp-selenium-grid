@@ -50,6 +50,7 @@ You can run tests using pytest:
   ```
 
 > - The following test markers are available: `unit`, `integration`, `e2e`.
+> **Note:** Integration and e2e tests interact with real infrastructure (Docker/Kubernetes) and require these services to be running.
 > **ℹ️ For more details on test types and structure, see [`src/tests/README.md`](src/tests/README.md).**
 
 ### 5. Code Quality

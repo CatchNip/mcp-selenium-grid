@@ -25,7 +25,6 @@ htmlcov/
 # Environment
 .env
 .env.*
-!.env.dev
 .venv/
 venv/
 .uv/

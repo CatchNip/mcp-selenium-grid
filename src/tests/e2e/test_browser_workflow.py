@@ -20,7 +20,7 @@ def create_browser(client, auth_headers, count=1, browser_type="chrome"):
 
 
 @pytest.mark.e2e
-def test_complete_browser_lifecycle(client, auth_headers, selenium_container):
+def test_complete_browser_lifecycle(client, auth_headers):
     # 1. Create a browser instance
     create_response = create_browser(client, auth_headers)
     assert create_response.status_code == HTTP_201_CREATED
@@ -54,8 +54,16 @@ def test_complete_browser_lifecycle(client, auth_headers, selenium_container):
         assert delete_response.json()["success"] is True
 
 
-def test_hub_operation(client, auth_headers, selenium_container):
+def test_hub_operation(client, auth_headers):
     response = client.get("/api/v1/browsers/status", headers=auth_headers)
     assert response.status_code == HTTP_200_OK
     data = response.json()
     assert data["hub_running"] is True
+
+
+@pytest.mark.e2e
+@pytest.mark.parametrize("browser_type", ["invalid", "firefox"])
+def test_error_handling(client, auth_headers, browser_type):
+    """Test API error handling for browser creation."""
+    response = create_browser(client, auth_headers, browser_type=browser_type)
+    assert response.status_code in (400, 422)

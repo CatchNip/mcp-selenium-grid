@@ -9,7 +9,6 @@ import pytest
 from app.main import app
 from authlib.jose.errors import ExpiredTokenError, InvalidClaimError
 from fastapi.testclient import TestClient
-from testcontainers.selenium import BrowserWebDriverContainer
 
 
 # Mock class for Docker client
@@ -189,16 +188,6 @@ def auth_headers():
     from app.core.settings import settings
 
     return {"Authorization": f"Bearer {settings.API_TOKEN}"}
-
-
-@pytest.fixture(scope="session")
-def selenium_container():
-    """Spin up a Selenium container for E2E tests."""
-    from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-
-    with BrowserWebDriverContainer(DesiredCapabilities.CHROME) as container:
-        container.with_exposed_ports(4444)
-        yield container
 
 
 @pytest.fixture
