@@ -1,7 +1,7 @@
-from ast import literal_eval
 from os import getenv
 
 
-def getenv_as_bool(key: str):
+def getenv_as_bool(key: str) -> bool:
     """Get environment variable as boolean."""
-    return literal_eval(getenv(key, "False").capitalize())
+    env_val = getenv(key, "False").lower()
+    return env_val == "true"

@@ -1,5 +1,7 @@
 """Token authentication for MCP Server."""
 
+from typing import Dict
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -9,7 +11,9 @@ from app.core.settings import settings
 security = HTTPBearer()
 
 
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def verify_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Dict[str, str]:
     """Verify API token and return user information."""
     if credentials.credentials != settings.API_TOKEN:
         raise HTTPException(

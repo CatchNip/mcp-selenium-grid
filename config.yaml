@@ -1,6 +1,6 @@
 development: true
 api_token: CHANGE_ME
-selenium_hub_port: 4444
+selenium_hub_port: 4444 # this need to improve, some config are hardcoded especially in kubernetes. Fix first teh e2e tests
 selenium_hub_base_url: http://localhost:4444
 selenium_node_max_sessions: 1
 max_browser_instances: 5
@@ -14,17 +14,17 @@ browser_configs:
     image: selenium/node-chrome:4.18.1
     port: 4444
     resources:
-      memory: 2G
-      cpu: 1
+      memory: "2G"
+      cpu: "1"
   firefox:
     image: selenium/node-firefox:4.18.1
     port: 4444
     resources:
-      memory: 2G
-      cpu: 1
+      memory: "2G"
+      cpu: "1"
   edge:
     image: selenium/node-edge:4.18.1
     port: 4444
     resources:
-      memory: 2G
-      cpu: 1
+      memory: "2G"
+      cpu: "1"

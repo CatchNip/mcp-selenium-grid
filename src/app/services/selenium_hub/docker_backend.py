@@ -1,13 +1,17 @@
 import logging
+from typing import Any, Dict, List
 
 import docker
 from docker.errors import APIError, NotFound
+
+from app.core.models import BrowserConfig
+from app.core.settings import Settings
 
 from .backend import HubBackend
 
 
 class DockerHubBackend(HubBackend):
-    def __init__(self, settings):
+    def __init__(self, settings: Settings):
         self.client = docker.from_env()
         self.settings = settings
 
@@ -39,7 +43,7 @@ class DockerHubBackend(HubBackend):
         except Exception as e:
             logging.exception(f"Unexpected error removing selenium-grid network: {e}")
 
-    async def ensure_hub_running(self, browser_configs: dict) -> bool:
+    async def ensure_hub_running(self) -> bool:
         """Ensure the Selenium Grid network and Hub container are running."""
 
         # Ensure network exists
@@ -92,32 +96,34 @@ class DockerHubBackend(HubBackend):
 
         return True
 
-    async def create_browsers(self, count: int, browser_type: str, browser_configs: dict) -> list:
+    async def create_browsers(
+        self, count: int, browser_type: str, browser_configs: Dict[str, BrowserConfig]
+    ) -> List[str]:
         """Create the requested number of Selenium browser containers."""
-        config = browser_configs[browser_type]
-        browser_ids = []
+        config: BrowserConfig = browser_configs[browser_type]
+        browser_ids: List[str] = []
         for _ in range(count):
             # Ensure image exists, pull if necessary
             try:
-                self.client.images.get(config["image"])
-                logging.info(f"Docker image {config['image']} already exists.")
+                self.client.images.get(config.image)
+                logging.info(f"Docker image {config.image} already exists.")
             except NotFound:
-                logging.info(f"Docker image {config['image']} not found, pulling.")
-                self.client.images.pull(config["image"])
-                logging.info(f"Docker image {config['image']} pulled.")
+                logging.info(f"Docker image {config.image} not found, pulling.")
+                self.client.images.pull(config.image)
+                logging.info(f"Docker image {config.image} pulled.")
             except APIError as e:
-                logging.error(f"Docker API error ensuring image {config['image']}: {e}")
+                logging.error(f"Docker API error ensuring image {config.image}: {e}")
                 # Depending on requirements, might raise or skip this browser
                 continue  # Skip this browser creation on image error
             except Exception as e:
-                logging.exception(f"Unexpected error ensuring image {config['image']}: {e}")
+                logging.exception(f"Unexpected error ensuring image {config.image}: {e}")
                 continue  # Skip this browser creation on unexpected error
 
             # Create and run container
             try:
                 logging.info(f"Creating container for browser type {browser_type}.")
                 container = self.client.containers.run(
-                    config["image"],
+                    config.image,
                     detach=True,
                     network="selenium-grid",
                     environment={
@@ -126,8 +132,8 @@ class DockerHubBackend(HubBackend):
                         "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
                         "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS or 1),
                     },
-                    mem_limit=config["resources"]["memory"],
-                    cpu_count=int(float(config["resources"]["cpu"])),
+                    mem_limit=config.resources.memory,
+                    cpu_count=int(config.resources.cpu),  # Convert cpu to int
                 )
                 cid = getattr(container, "id", None)
                 if not cid:
@@ -144,7 +150,7 @@ class DockerHubBackend(HubBackend):
 
         return browser_ids
 
-    async def get_browser_status(self, browser_id: str) -> dict:
+    async def get_browser_status(self, browser_id: str) -> Dict[str, Any]:
         """Get status for a specific browser instance by container ID (Docker)."""
         try:
             container = self.client.containers.get(browser_id)
@@ -168,3 +174,21 @@ class DockerHubBackend(HubBackend):
         except Exception as e:
             logging.exception(f"Unexpected error getting status for {browser_id}: {e}")
             return {"status": "error", "message": str(e)}
+
+    async def delete_browser(self, browser_id: str) -> Dict[str, Any]:
+        """Delete a specific browser instance by container ID (Docker)."""
+        try:
+            logging.info(f"Attempting to remove browser container with ID {browser_id}.")
+            container = self.client.containers.get(browser_id)
+            container.remove(force=True)
+            logging.info(f"Removed browser container with ID {browser_id}.")
+            return {"success": True, "id": browser_id, "message": "Container removed"}
+        except NotFound:
+            logging.info(f"Browser container with ID {browser_id} not found for deletion.")
+            return {"success": False, "id": browser_id, "message": "Container not found"}
+        except APIError as e:
+            logging.error(f"Docker API error removing container {browser_id}: {e}")
+            return {"success": False, "id": browser_id, "message": f"Docker API error: {e}"}
+        except Exception as e:
+            logging.exception(f"Unexpected error removing container {browser_id}: {e}")
+            return {"success": False, "id": browser_id, "message": f"Unexpected error: {e}"}

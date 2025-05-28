@@ -1,13 +1,18 @@
 """Core settings for MCP Server."""
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Type
 
-import yaml
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic import Field, field_validator
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource,
+)
+from typing_extensions import override
 
 from app.core.env_helpers import getenv_as_bool
-from app.core.models import BrowserConfig
+from app.core.models import BrowserConfig, ContainerResources
 
 
 class Settings(BaseSettings):
@@ -37,9 +42,7 @@ class Settings(BaseSettings):
     )
 
     # Browser Configurations
-    BROWSER_CONFIGS: Dict[str, BrowserConfig] = Field(
-        default_factory=dict,
-    )
+    BROWSER_CONFIGS: Dict[str, BrowserConfig] = Field(default_factory=dict)
 
     # API Token
     API_TOKEN: str = Field(default="CHANGE_ME")
@@ -48,18 +51,50 @@ class Settings(BaseSettings):
     K8S_RETRY_DELAY_SECONDS: int = Field(default=2)
     K8S_MAX_RETRIES: int = Field(default=5)
 
-    class Config:
-        env_file = "config.yaml"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        yaml_file="config.yaml",
+        yaml_file_encoding="utf-8",
+        alias_generator=lambda name: name.lower(),
+        case_sensitive=True,
+        extra="ignore",
+    )
 
+    @field_validator("BROWSER_CONFIGS", mode="before")
     @classmethod
-    def parse_yaml(cls) -> "Settings":
-        config_file = "config.yaml"
-        with open(config_file, "r", encoding="utf-8") as file:
-            yaml_data = yaml.safe_load(file)
-        return cls.model_validate(yaml_data)
+    def _parse_browser_configs(cls, raw: Dict[str, Any]) -> Dict[str, BrowserConfig]:
+        # Transform raw dict into validated BrowserConfig objects
+        configs: dict[str, BrowserConfig] = {}
+        for name, cfg in (raw or {}).items():
+            # container resources, if present
+            if "resources" in cfg:
+                cfg["resources"] = ContainerResources(**cfg["resources"])
+            configs[name] = BrowserConfig(**cfg)
+        return configs
+
+    @override
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[
+        YamlConfigSettingsSource,
+        PydanticBaseSettingsSource,
+        PydanticBaseSettingsSource,
+        PydanticBaseSettingsSource,
+        PydanticBaseSettingsSource,
+    ]:
+        # Load config.yaml first, then the default sources
+        return (
+            YamlConfigSettingsSource(settings_cls),
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+        )
 
 
-settings = Settings.parse_yaml()
+settings = Settings()

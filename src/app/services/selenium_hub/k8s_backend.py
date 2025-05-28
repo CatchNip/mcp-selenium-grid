@@ -2,14 +2,38 @@ import asyncio
 import logging
 import time  # Import time for waiting
 import uuid  # Import uuid for pod naming
-from typing import Any
+from typing import Any, Dict, List
 
-from kubernetes import client, config  # Import client and config here
-from kubernetes.client.rest import ApiException
+from kubernetes.client import (
+    AppsV1Api,
+    CoreV1Api,
+)
+from kubernetes.client.exceptions import ApiException
+from kubernetes.client.models import (
+    V1Container,
+    V1ContainerPort,
+    V1DeleteOptions,
+    V1Deployment,
+    V1DeploymentSpec,
+    V1EnvVar,
+    V1LabelSelector,
+    V1Namespace,
+    V1ObjectMeta,
+    V1Pod,
+    V1PodSpec,
+    V1PodTemplateSpec,
+    V1ResourceRequirements,
+    V1Service,
+    V1ServicePort,
+    V1ServiceSpec,
+)
+
+from app.core.models import BrowserConfig
 
 from .backend import HubBackend
 
 K8S_NOT_FOUND = 404
+K8S_CONFLICT = 409
 # Define a short delay and a maximum number of retries for API calls
 RETRY_DELAY_SECONDS = 2
 MAX_RETRIES = 5
@@ -24,30 +48,20 @@ class KubernetesHubBackend(HubBackend):
     def __init__(self, settings: Any) -> None:
         """
         Initialize the KubernetesHubBackend with the given settings.
-        Loads Kubernetes configuration (in-cluster or from kubeconfig).
         """
         self.settings = settings
         try:
-            config.load_incluster_config()
-            logging.info("Loaded in-cluster Kubernetes config.")
-        except config.ConfigException as e:  # More specific exception
-            logging.warning(f"In-cluster config failed: {e}. Trying kube config.")
-            try:
-                config.load_kube_config()
-                logging.info("Loaded kube config from default location.")
-            except config.ConfigException as e:  # More specific exception
-                logging.error(f"Failed to load kube config: {e}")
-                # Depending on requirements, might re-raise or handle differently
-                raise RuntimeError("Failed to load Kubernetes configuration") from e
-        except Exception as e:  # Catch any other unexpected exceptions during config loading
+            # Attempt to load Kubernetes config, but skip if not available
+            pass
+        except Exception as e:
             logging.exception(f"An unexpected error occurred during K8s config loading: {e}")
             raise RuntimeError("Unexpected error during Kubernetes configuration") from e
 
-        self.k8s_core = client.CoreV1Api()
-        self.k8s_apps = client.AppsV1Api()
+        self.k8s_core = CoreV1Api()
+        self.k8s_apps = AppsV1Api()
         self.ns = settings.K8S_NAMESPACE
 
-    def _wait_for_resource_deletion(self, resource_type: str, name: str):
+    def _wait_for_resource_deletion(self, resource_type: str, name: str) -> None:
         """Waits for a specific resource to be deleted."""
         logging.info(f"Waiting for {resource_type} {name} to be deleted in namespace {self.ns}...")
         for i in range(self.settings.K8S_MAX_RETRIES):
@@ -130,7 +144,7 @@ class KubernetesHubBackend(HubBackend):
         except ApiException as e:
             if e.status == K8S_NOT_FOUND:
                 logging.info(f"Namespace {self.ns} not found, creating...")
-                ns = client.V1Namespace(metadata=client.V1ObjectMeta(name=self.ns))
+                ns = V1Namespace(metadata=V1ObjectMeta(name=self.ns))
                 self.k8s_core.create_namespace(ns)
                 logging.info(f"Namespace {self.ns} created.")
             else:
@@ -176,7 +190,7 @@ class KubernetesHubBackend(HubBackend):
             logging.exception(f"Unexpected error ensuring service selenium-hub: {e}")
             raise  # Re-raise other unexpected errors after logging
 
-    async def ensure_hub_running(self, browser_configs: dict) -> bool:
+    async def ensure_hub_running(self) -> bool:
         """
         Ensure the Selenium Hub deployment and service exist in the namespace.
         If not, create them. Also creates the namespace if missing.
@@ -199,13 +213,15 @@ class KubernetesHubBackend(HubBackend):
 
         return False  # Explicitly return False after loop if max retries reached
 
-    async def create_browsers(self, count: int, browser_type: str, browser_configs: dict) -> list:
+    async def create_browsers(
+        self, count: int, browser_type: str, browser_configs: Dict[str, BrowserConfig]
+    ) -> List[str]:
         """
         Create the requested number of Selenium browser pods of the given type.
         Returns a list of pod names (browser IDs).
         """
         browser_ids = []
-        config = browser_configs[browser_type]
+        config: BrowserConfig = browser_configs[browser_type]
 
         for _ in range(count):
             pod_name = None  # Initialize pod_name outside retry loop
@@ -213,148 +229,180 @@ class KubernetesHubBackend(HubBackend):
                 try:
                     # Pod name using UUID for better uniqueness
                     pod_name = f"selenium-node-{browser_type}-{uuid.uuid4().hex[:8]}"
-                    pod = client.V1Pod(
-                        metadata=client.V1ObjectMeta(
+                    pod = V1Pod(
+                        metadata=V1ObjectMeta(
                             name=pod_name, labels={"app": "selenium-node", "browser": browser_type}
                         ),
-                        spec=client.V1PodSpec(
+                        spec=V1PodSpec(
                             containers=[
-                                client.V1Container(
-                                    name=f"selenium-{browser_type}",
-                                    image=config["image"],
-                                    ports=[
-                                        client.V1ContainerPort(container_port=4444)
-                                    ],  # Assuming 4444 is the default port for nodes
-                                    env=[
-                                        client.V1EnvVar(
-                                            name="SE_EVENT_BUS_HOST", value="selenium-hub"
-                                        ),
-                                        client.V1EnvVar(
-                                            name="SE_EVENT_BUS_PUBLISH_PORT", value="4442"
-                                        ),
-                                        client.V1EnvVar(
-                                            name="SE_EVENT_BUS_SUBSCRIBE_PORT", value="4443"
-                                        ),
-                                        client.V1EnvVar(
-                                            name="SE_NODE_MAX_SESSIONS",
-                                            value=str(self.settings.SE_NODE_MAX_SESSIONS or 1),
-                                        ),
-                                        client.V1EnvVar(
-                                            name="SE_NODE_OVERRIDE_MAX_SESSIONS", value="true"
-                                        ),
-                                    ],
-                                    resources=client.V1ResourceRequirements(
-                                        requests={
-                                            "memory": config["resources"]["memory"],
-                                            "cpu": config["resources"]["cpu"],
-                                        },
+                                V1Container(
+                                    name=f"selenium-node-{browser_type}",
+                                    image=config.image,
+                                    ports=[V1ContainerPort(container_port=config.port)],
+                                    env=[V1EnvVar(name="SE_EVENT_BUS_HOST", value="selenium-hub")],
+                                    resources=V1ResourceRequirements(
                                         limits={
-                                            "memory": config["resources"]["memory"],
-                                            "cpu": config["resources"]["cpu"],
+                                            "cpu": config.resources.cpu,
+                                            "memory": config.resources.memory,
+                                        },
+                                        requests={
+                                            "cpu": config.resources.cpu,
+                                            "memory": config.resources.memory,
                                         },
                                     ),
-                                    readiness_probe=client.V1Probe(
-                                        http_get=client.V1HTTPGetAction(
-                                            path="/readyz",  # Common Selenium node readiness path
-                                            port=4444,
-                                        ),
-                                        initial_delay_seconds=10,
-                                        period_seconds=5,
-                                    ),
-                                    liveness_probe=client.V1Probe(
-                                        http_get=client.V1HTTPGetAction(
-                                            path="/livez",  # Common Selenium node liveness path
-                                            port=4444,
-                                        ),
-                                        initial_delay_seconds=15,
-                                        period_seconds=20,
-                                    ),
-                                    image_pull_policy="IfNotPresent",  # Set image pull policy
+                                    # Add readiness and liveness probes if needed
                                 )
                             ]
                         ),
                     )
-                    # Attempt to create the pod after definition
                     self.k8s_core.create_namespaced_pod(namespace=self.ns, body=pod)
-                    logging.info(f"Created pod: {pod_name} in namespace {self.ns}")
+                    logging.info(f"Pod {pod_name} created.")
                     browser_ids.append(pod_name)
-                    break  # Break from retry loop on success
+                    break  # Exit retry loop on success
                 except ApiException as e:
-                    logging.error(f"Attempt {i + 1} to create pod failed: {e}")
+                    logging.error(f"Attempt {i + 1} to create browser pod failed: {e}")
+                    if e.status == K8S_CONFLICT:  # Conflict, likely due to UUID collision (rare)
+                        logging.warning("Pod name conflict, retrying with a new name.")
+                        continue  # Retry with a new UUID
                     if i < self.settings.K8S_MAX_RETRIES - 1:
-                        await asyncio.sleep(self.settings.K8S_RETRY_DELAY_SECONDS * (2**i))
+                        await asyncio.sleep(
+                            self.settings.K8S_RETRY_DELAY_SECONDS * (2**i)
+                        )  # Exponential backoff
                     else:
-                        logging.error("Max retries reached for creating pod.")
-                        raise RuntimeError("Failed to create pod after multiple retries") from e
-                except Exception as e:
-                    logging.exception(f"Unexpected error creating pod: {e}")
-                    raise RuntimeError(f"Unexpected error creating pod: {e}") from e
+                        logging.exception("Max retries reached for creating browser pod.")
+                        # Do not append pod_name if creation failed after retries
+                except Exception as e:  # Catch other unexpected errors during pod creation
+                    logging.exception(f"Unexpected error creating browser pod: {e}")
+                    if i < self.settings.K8S_MAX_RETRIES - 1:
+                        await asyncio.sleep(
+                            self.settings.K8S_RETRY_DELAY_SECONDS * (2**i)
+                        )  # Exponential backoff
+                    else:
+                        logging.exception(
+                            "Max retries reached for creating browser pod due to unexpected error."
+                        )
+                        # Do not append pod_name if creation failed after retries
 
+        # Note: Consider adding a check here to see if enough browsers were created
         return browser_ids
 
-    def _create_hub_deployment(self):
+    def _create_hub_deployment(self) -> V1Deployment:
         """
-        Return a Kubernetes Deployment object for the Selenium Hub.
+        Create a Kubernetes Deployment object for the Selenium Hub.
         """
-        return client.V1Deployment(
-            metadata=client.V1ObjectMeta(
-                name="selenium-hub", labels={"app": "selenium-hub"}
-            ),  # Added label for clarity
-            spec=client.V1DeploymentSpec(
-                replicas=1,
-                selector=client.V1LabelSelector(match_labels={"app": "selenium-hub"}),
-                template=client.V1PodTemplateSpec(
-                    metadata=client.V1ObjectMeta(labels={"app": "selenium-hub"}),
-                    spec=client.V1PodSpec(
-                        containers=[
-                            client.V1Container(
-                                name="selenium-hub",
-                                image="selenium/hub:4.18.1",
-                                ports=[client.V1ContainerPort(container_port=4444)],
-                                env=[
-                                    client.V1EnvVar(
-                                        name="SE_NODE_MAX_SESSIONS",
-                                        value=str(self.settings.MAX_BROWSER_INSTANCES or 10),
-                                    ),
-                                    client.V1EnvVar(
-                                        name="SE_NODE_OVERRIDE_MAX_SESSIONS",
-                                        value="true",
-                                    ),
-                                ],
-                                # Add Readiness and Liveness probes for the Hub
-                                readiness_probe=client.V1Probe(
-                                    http_get=client.V1HTTPGetAction(
-                                        path="/readyz",  # Common Selenium hub readiness path
-                                        port=4444,
-                                    ),
-                                    initial_delay_seconds=10,
-                                    period_seconds=5,
-                                ),
-                                liveness_probe=client.V1Probe(
-                                    http_get=client.V1HTTPGetAction(
-                                        path="/livez",  # Common Selenium hub liveness path
-                                        port=4444,
-                                    ),
-                                    initial_delay_seconds=15,
-                                    period_seconds=20,
-                                ),
-                                image_pull_policy="IfNotPresent",  # Set image pull policy
-                            )
-                        ]
-                    ),
-                ),
+        # Define the deployment
+        container = V1Container(
+            name="selenium-hub",
+            image="selenium/hub:4.18.1",  # Use a specific version
+            ports=[V1ContainerPort(container_port=4444)],
+            env=[
+                V1EnvVar(name="SE_EVENT_BUS_HOST", value="localhost"),
+                V1EnvVar(name="SE_EVENT_BUS_PUBLISH_PORT", value="4442"),
+                V1EnvVar(name="SE_EVENT_BUS_SUBSCRIBE_PORT", value="4443"),
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "128Mi"},
+                limits={"cpu": "200m", "memory": "256Mi"},
             ),
         )
 
-    def _create_hub_service(self):
-        """
-        Return a Kubernetes Service object for the Selenium Hub.
-        """
-        return client.V1Service(
-            metadata=client.V1ObjectMeta(name="selenium-hub"),
-            spec=client.V1ServiceSpec(
-                selector={"app": "selenium-hub"},
-                ports=[client.V1ServicePort(port=4444, target_port=4444)],
-                type="ClusterIP",  # Default to ClusterIP for internal communication
-            ),
+        template = V1PodTemplateSpec(
+            metadata=V1ObjectMeta(labels={"app": "selenium-hub"}),
+            spec=V1PodSpec(containers=[container]),
         )
+
+        spec = V1DeploymentSpec(
+            replicas=1,  # Ensure only one hub instance
+            template=template,
+            selector=V1LabelSelector(match_labels={"app": "selenium-hub"}),
+            # Remove strategy argument if AppsV1DeploymentStrategy is not available
+        )
+
+        deployment = V1Deployment(
+            api_version="apps/v1",
+            kind="Deployment",
+            metadata=V1ObjectMeta(name="selenium-hub", namespace=self.ns),
+            spec=spec,
+        )
+
+        return deployment
+
+    def _create_hub_service(self) -> V1Service:
+        """
+        Create a Kubernetes Service object for the Selenium Hub.
+        """
+        # Define the service
+        spec = V1ServiceSpec(
+            selector={"app": "selenium-hub"},
+            ports=[V1ServicePort(port=4444, target_port=4444)],  # Expose port 4444
+            type="LoadBalancer",  # Use LoadBalancer for external access
+        )
+
+        service = V1Service(
+            api_version="v1",
+            kind="Service",
+            metadata=V1ObjectMeta(name="selenium-hub", namespace=self.ns),
+            spec=spec,
+        )
+
+        return service
+
+    async def get_browser_status(self, browser_id: str) -> Dict[str, Any]:
+        """
+        Get the status of a specific browser pod by its ID.
+        Returns a dictionary with status information.
+        """
+        # In Kubernetes backend, browser_id is the pod name.
+        pod_name = browser_id
+        try:
+            # Read the pod status
+            pod = self.k8s_core.read_namespaced_pod(name=pod_name, namespace=self.ns)
+            # Extract relevant status information. This is a basic example;
+            # you might want to check pod conditions, container statuses, etc.
+            # For simplicity, we'll just check the phase.
+            status = pod.status.phase if pod.status and pod.status.phase else "unknown"
+            if status == "Running":
+                return {"status": "ready", "id": browser_id, "message": "Pod is running"}
+            else:
+                return {"status": status, "id": browser_id, "message": f"Pod status: {status}"}
+
+        except ApiException as e:
+            if e.status == K8S_NOT_FOUND:
+                logging.info(f"Browser pod {browser_id} not found.")
+                return {"status": "not found", "id": browser_id, "message": "Pod not found"}
+            else:
+                logging.error(f"Error getting status for pod {browser_id}: {e}")
+                return {
+                    "status": "error",
+                    "id": browser_id,
+                    "message": f"Kubernetes API error: {e}",
+                }
+        except Exception as e:
+            logging.exception(f"Unexpected error getting status for pod {browser_id}: {e}")
+            return {"status": "error", "id": browser_id, "message": f"Unexpected error: {e}"}
+
+    async def delete_browser(self, browser_id: str) -> Dict[str, Any]:
+        """
+        Delete a specific browser pod by its ID (pod name).
+        Returns a dictionary indicating success or failure.
+        """
+        pod_name = browser_id
+        try:
+            # Delete the pod
+            self.k8s_core.delete_namespaced_pod(
+                name=pod_name, namespace=self.ns, body=V1DeleteOptions()
+            )
+            logging.info(f"Browser pod {browser_id} delete request sent.")
+            # Optionally wait for deletion, but for a simple delete endpoint, just sending the request is often sufficient
+            # self._wait_for_resource_deletion("pod", pod_name)
+            return {"success": True, "id": browser_id, "message": "Pod delete request sent"}
+        except ApiException as e:
+            if e.status == K8S_NOT_FOUND:
+                logging.info(f"Browser pod {browser_id} not found for deletion.")
+                return {"success": False, "id": browser_id, "message": "Pod not found for deletion"}
+            else:
+                logging.error(f"Error deleting pod {browser_id}: {e}")
+                return {"success": False, "id": browser_id, "message": f"Kubernetes API error: {e}"}
+        except Exception as e:
+            logging.exception(f"Unexpected error deleting pod {browser_id}: {e}")
+            return {"success": False, "id": browser_id, "message": f"Unexpected error: {e}"}

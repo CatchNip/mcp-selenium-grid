@@ -1,16 +1,23 @@
 """End-to-end tests for browser workflows using real infrastructure."""
 
 import time
+from typing import Dict
 
 import pytest
+from fastapi.testclient import TestClient
+from httpx import Response
 
 # from testcontainers.selenium import SeleniumContainer
 
 HTTP_201_CREATED = 201
 HTTP_200_OK = 200
+HTTP_422_UNPROCESSABLE_ENTITY = 422
+EXPECTED_BROWSER_COUNT = 2
 
 
-def create_browser(client, auth_headers, count=1, browser_type="chrome"):
+def create_browser(
+    client: TestClient, auth_headers: Dict[str, str], count: int = 1, browser_type: str = "chrome"
+) -> Response:
     response = client.post(
         "/api/v1/browsers",
         json={"browser_type": browser_type, "count": count},
@@ -20,7 +27,7 @@ def create_browser(client, auth_headers, count=1, browser_type="chrome"):
 
 
 @pytest.mark.e2e
-def test_complete_browser_lifecycle(client, auth_headers):
+def test_complete_browser_lifecycle(client: TestClient, auth_headers: Dict[str, str]) -> None:
     # 1. Create a browser instance
     create_response = create_browser(client, auth_headers)
     assert create_response.status_code == HTTP_201_CREATED
@@ -54,7 +61,7 @@ def test_complete_browser_lifecycle(client, auth_headers):
         assert delete_response.json()["success"] is True
 
 
-def test_hub_operation(client, auth_headers):
+def test_hub_operation(client: TestClient, auth_headers: Dict[str, str]) -> None:
     response = client.get("/api/v1/browsers/status", headers=auth_headers)
     assert response.status_code == HTTP_200_OK
     data = response.json()
@@ -63,7 +70,9 @@ def test_hub_operation(client, auth_headers):
 
 @pytest.mark.e2e
 @pytest.mark.parametrize("browser_type", ["invalid", "firefox"])
-def test_error_handling(client, auth_headers, browser_type):
+def test_error_handling(
+    client: TestClient, auth_headers: Dict[str, str], browser_type: str
+) -> None:
     """Test API error handling for browser creation."""
     response = create_browser(client, auth_headers, browser_type=browser_type)
     assert response.status_code in (400, 422)

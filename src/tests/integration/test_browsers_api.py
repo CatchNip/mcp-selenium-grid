@@ -1,5 +1,7 @@
 """Test suite for MCP browser endpoints."""
 
+from typing import Any, Dict
+
 import pytest
 
 HTTP_201_CREATED = 201
@@ -11,7 +13,7 @@ EXPECTED_BROWSER_COUNT = 2
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.usefixtures("cleanup_docker_browsers")
-async def test_create_browsers_endpoint(client, auth_headers):
+async def test_create_browsers_endpoint(client: Any, auth_headers: Dict[str, str]) -> None:
     """Test browser creation endpoint."""
     response = client.post(
         "/api/v1/browsers",
@@ -29,7 +31,7 @@ async def test_create_browsers_endpoint(client, auth_headers):
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.usefixtures("cleanup_docker_browsers")
-async def test_create_browsers_validates_count(client, auth_headers):
+async def test_create_browsers_validates_count(client: Any, auth_headers: Dict[str, str]) -> None:
     """Test browser count validation."""
     response = client.post(
         "/api/v1/browsers",
@@ -43,7 +45,7 @@ async def test_create_browsers_validates_count(client, auth_headers):
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.usefixtures("cleanup_docker_browsers")
-async def test_create_browsers_validates_type(client, auth_headers):
+async def test_create_browsers_validates_type(client: Any, auth_headers: Dict[str, str]) -> None:
     """Test browser type validation."""
     response = client.post(
         "/api/v1/browsers",
@@ -56,7 +58,7 @@ async def test_create_browsers_validates_type(client, auth_headers):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_hub_status_endpoint(client, auth_headers):
+async def test_hub_status_endpoint(client: Any, auth_headers: Dict[str, str]) -> None:
     """Test hub status endpoint."""
     response = client.get("/api/v1/browsers/status", headers=auth_headers)
 

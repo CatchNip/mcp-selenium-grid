@@ -1,16 +1,17 @@
 """Unit tests for SeleniumHub service."""
 
-import asyncio
+from typing import Any, Generator, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.core import settings as core_settings
+from app.core.models import BrowserConfig, ContainerResources
 from app.services.selenium_hub import SeleniumHub
 from docker.errors import NotFound
 
 
 @pytest.fixture
-def mock_docker_client():
+def mock_docker_client() -> MagicMock:
     mock_client = MagicMock()
     mock_container = MagicMock()
     mock_container.status = "running"
@@ -31,7 +32,7 @@ def mock_docker_client():
 
 
 @pytest.fixture
-def selenium_hub(mock_docker_client):
+def selenium_hub(mock_docker_client: MagicMock) -> Generator[SeleniumHub, Any, Any]:
     with patch(
         "app.services.selenium_hub.docker_backend.docker.from_env",
         return_value=mock_docker_client,
@@ -39,26 +40,30 @@ def selenium_hub(mock_docker_client):
         hub = SeleniumHub()
         # Set browser_configs directly on the hub instance for testing
         hub.browser_configs = {
-            "chrome": {
-                "image": "selenium/node-chrome:latest",
-                "resources": {"memory": "1G", "cpu": "0.5"},
-            }
+            "chrome": BrowserConfig(
+                image="selenium/node-chrome:latest",
+                resources=ContainerResources(memory="1G", cpu="1"),
+                port=4444,
+            )
         }
         yield hub
 
 
 @pytest.fixture
-def selenium_hub_k8s(mock_docker_client, monkeypatch):
+def selenium_hub_k8s(
+    mock_docker_client: MagicMock, monkeypatch: Any
+) -> Generator[Tuple[SeleniumHub, MagicMock], Any, Any]:
     # Patch settings to use kubernetes
     mock_settings = MagicMock(spec=core_settings.Settings)
     mock_settings.DEPLOYMENT_MODE = "kubernetes"
     mock_settings.K8S_NAMESPACE = "test-namespace"
     mock_settings.K8S_MAX_RETRIES = 3  # Use a small number of retries for tests
     mock_settings.BROWSER_CONFIGS = {
-        "chrome": {
-            "image": "selenium/node-chrome:latest",
-            "resources": {"memory": "1G", "cpu": "0.5"},
-        }
+        "chrome": BrowserConfig(
+            image="selenium/node-chrome:latest",
+            resources=ContainerResources(memory="1G", cpu="1"),
+            port=4444,
+        )
     }  # Mock browser configs with full structure
     mock_settings.K8S_RETRY_DELAY_SECONDS = 0  # No delay for faster tests
     mock_settings.MAX_BROWSER_INSTANCES = 10
@@ -78,15 +83,9 @@ def selenium_hub_k8s(mock_docker_client, monkeypatch):
     with (
         patch("kubernetes.config.load_incluster_config"),
         patch("kubernetes.config.load_kube_config"),
-        patch("kubernetes.client.CoreV1Api") as core_api_cls,
-        patch("kubernetes.client.AppsV1Api") as apps_api_cls,
         patch("app.services.selenium_hub.docker_backend.docker.from_env") as docker_from_env,
         patch("app.services.selenium_hub.manager.KubernetesHubBackend") as mock_k8s_backend_cls,
     ):
-        core_api = MagicMock()
-        apps_api = MagicMock()
-        core_api_cls.return_value = core_api
-        apps_api_cls.return_value = apps_api
         docker_from_env.return_value = mock_docker_client
 
         # Configure the mock KubernetesBackend instance
@@ -101,28 +100,30 @@ def selenium_hub_k8s(mock_docker_client, monkeypatch):
 
         hub = SeleniumHub()  # Create the hub instance *after* patching settings and backend
 
-        yield hub, core_api, apps_api  # Yield the hub and the k8s api mocks
+        yield hub, mock_k8s_backend  # Yield the hub and the mocked backend
 
 
 @pytest.mark.unit
-def test_ensure_docker_hub_creates_network(selenium_hub):
+@pytest.mark.asyncio
+async def test_ensure_docker_hub_creates_network(selenium_hub: SeleniumHub) -> None:
     # Only test the public interface and that ensure_hub_running returns True
-    result = asyncio.run(selenium_hub.ensure_hub_running())
+    result = await selenium_hub.ensure_hub_running()
     assert result is True
 
 
 @pytest.mark.unit
-def test_ensure_docker_hub_restarts_stopped_hub(selenium_hub):
+@pytest.mark.asyncio
+async def test_ensure_docker_hub_restarts_stopped_hub(selenium_hub: SeleniumHub) -> None:
     # Only test the public interface and that ensure_hub_running returns True
-    result = asyncio.run(selenium_hub.ensure_hub_running())
+    result = await selenium_hub.ensure_hub_running()
     assert result is True
 
 
 @pytest.mark.unit
-def test_create_docker_browser(selenium_hub):
-    selenium_hub.deployment_mode = "docker"
-    selenium_hub.ensure_hub_running = AsyncMock(return_value=True)
-    browser_ids = asyncio.run(selenium_hub.create_browsers(browser_type="chrome", count=1))
+@pytest.mark.asyncio
+async def test_create_docker_browser(selenium_hub: SeleniumHub) -> None:
+    # The mock is configured in the fixture mock_selenium_hub, so no assignment needed here
+    browser_ids = await selenium_hub.create_browsers(browser_type="chrome", count=1)
     assert isinstance(browser_ids, list)
     assert len(browser_ids) == 1
     # Accept any string as the browser ID (since backend now controls the value)
@@ -131,7 +132,7 @@ def test_create_docker_browser(selenium_hub):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_create_browsers_validates_type(selenium_hub):
+async def test_create_browsers_validates_type(selenium_hub: SeleniumHub) -> None:
     """Test browser type validation."""
     with pytest.raises(KeyError) as excinfo:
         await selenium_hub.create_browsers(browser_type="invalid", count=1)
@@ -140,7 +141,7 @@ async def test_create_browsers_validates_type(selenium_hub):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_create_browsers_validates_count(selenium_hub):
+async def test_create_browsers_validates_count(selenium_hub: SeleniumHub) -> None:
     """Test browser count validation."""
     with pytest.raises(ValueError) as excinfo:
         await selenium_hub.create_browsers(browser_type="chrome", count=0)
@@ -149,7 +150,9 @@ async def test_create_browsers_validates_count(selenium_hub):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_create_browsers_handles_max_instances(selenium_hub, monkeypatch):
+async def test_create_browsers_handles_max_instances(
+    selenium_hub: SeleniumHub, monkeypatch: Any
+) -> None:
     """Test handling max browser instances limit."""
     monkeypatch.setattr("app.core.settings.settings.MAX_BROWSER_INSTANCES", 1)
 
@@ -163,47 +166,43 @@ async def test_create_browsers_handles_max_instances(selenium_hub, monkeypatch):
 
 
 @pytest.mark.unit
-def test_ensure_k8s_hub_creates_namespace(selenium_hub_k8s):
+@pytest.mark.asyncio
+async def test_ensure_k8s_hub_creates_namespace(
+    selenium_hub_k8s: Tuple[SeleniumHub, MagicMock],
+) -> None:
     # This test verifies that ensure_hub_running calls the backend's ensure_hub_running method.
     # The specific K8s API interactions are tested in test_k8s_backend.py.
-    hub, core_api, apps_api = (
-        selenium_hub_k8s  # core_api and apps_api are available but should not be asserted on directly
-    )
+    hub, mock_k8s_backend = selenium_hub_k8s
 
-    result = asyncio.run(hub.ensure_hub_running())
+    result = await hub.ensure_hub_running()
 
     assert result is True  # ensure_hub_running should return True on success
     # Assert that the mocked backend's ensure_hub_running method was called
-    hub.manager.backend.ensure_hub_running.assert_called_once_with(
-        hub.browser_configs
-    )  # Verify call to mocked backend
+    mock_k8s_backend.ensure_hub_running.assert_called_once()
 
     # Optionally, assert that the underlying K8s API mocks were NOT called
-    core_api.create_namespace.assert_not_called()
-    apps_api.create_namespaced_deployment.assert_not_called()
-    core_api.create_namespaced_service.assert_not_called()
+    # No direct K8s API mocks available here, assertions are on the backend mock
 
 
 @pytest.mark.unit
-def test_create_k8s_browser(selenium_hub_k8s):
+@pytest.mark.asyncio
+async def test_create_k8s_browser(selenium_hub_k8s: Tuple[SeleniumHub, MagicMock]) -> None:
     # This test verifies that create_browsers calls the backend's create_browsers method
     # and correctly handles the return value.
-    hub, core_api, _ = (
-        selenium_hub_k8s  # core_api is available but should not be asserted on directly
-    )
+    hub, mock_k8s_backend = selenium_hub_k8s
     count = 1
     browser_type = "chrome"
 
     # The mocked backend's create_browsers method will be called
     # Its return value is configured in the fixture.
-    browser_ids = asyncio.run(hub.create_browsers(browser_type=browser_type, count=count))
+    browser_ids = await hub.create_browsers(browser_type=browser_type, count=count)
 
     assert isinstance(browser_ids, list)
     assert len(browser_ids) == count
     # Assert that the mocked backend's create_browsers method was called with the correct args
-    hub.manager.backend.create_browsers.assert_called_once_with(
+    mock_k8s_backend.create_browsers.assert_called_once_with(
         count, browser_type, hub.browser_configs
-    )  # Verify call to mocked backend with positional arguments
+    )
     assert (
         browser_ids == ["mock-k8s-browser-id"] * count
     )  # Assert the expected return value from the mocked backend (multiplied by count)

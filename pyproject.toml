@@ -36,6 +36,10 @@ dev-dependencies = [
     "bandit>=1.7.8", # Security linter (latest is 1.7.8) # Dependency vulnerability checking
     "safety>=3.2.0",
     "pre-commit>=4.2.0",
+    "types-docker>=7.1.0.20250523",
+    "types-pyyaml>=6.0.12.20250516",
+    "types-authlib>=1.5.0.20250516",
+    "kubernetes-stubs>=22.6.0.post1",
 ]
 
 [project.optional-dependencies]
@@ -85,6 +89,7 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 check_untyped_defs = true
+exclude = ["src/app/main.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]

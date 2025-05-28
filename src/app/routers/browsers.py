@@ -1,6 +1,6 @@
 """Browser management endpoints for MCP Server."""
 
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials
@@ -50,12 +50,25 @@ async def create_browsers(
             detail=f"Maximum allowed browser instances is {settings.MAX_BROWSER_INSTANCES}",
         )
 
+    # Check if requested browser type is available in configs before proceeding
+    if request.browser_type not in settings.BROWSER_CONFIGS:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported browser type: {request.browser_type}. Available: {list(settings.BROWSER_CONFIGS.keys())}",
+        )
+
     hub = SeleniumHub()
     try:
         browser_ids = await hub.create_browsers(
             count=request.count, browser_type=request.browser_type
         )
     except Exception as e:
+        # Log the error and current browser configs for diagnostics
+        import logging
+
+        logging.error(
+            f"Exception in create_browsers: {e}. BROWSER_CONFIGS: {settings.BROWSER_CONFIGS}"
+        )
         raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     return BrowserResponse(browser_ids=browser_ids, hub_url=settings.SELENIUM_HUB_BASE_URL)
@@ -63,9 +76,11 @@ async def create_browsers(
 
 @router.get(
     "/browsers/status",
-    response_model=dict,
+    response_model=Dict[str, Any],
 )
-async def get_hub_status(credentials: HTTPBasicCredentials = Depends(verify_token)) -> dict:
+async def get_hub_status(
+    credentials: HTTPBasicCredentials = Depends(verify_token),
+) -> Dict[str, Any]:
     """Get Selenium Grid status."""
     hub = SeleniumHub()
     is_running = await hub.ensure_hub_running()

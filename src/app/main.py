@@ -1,6 +1,7 @@
 """MCP Server for managing Selenium Grid instances."""
 
 from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Dict
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +24,7 @@ def create_application() -> FastAPI:
     """Create FastAPI application for MCP."""
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
         try:
             hub = SeleniumHub()
             await hub.ensure_hub_running()
@@ -58,12 +59,14 @@ def create_application() -> FastAPI:
 
     # Prometheus metrics endpoint
     @app.get("/metrics")
-    def metrics(credentials: HTTPBasicCredentials = Depends(verify_token)):
+    def metrics(credentials: HTTPBasicCredentials = Depends(verify_token)) -> Response:
         return Response(generate_latest(), media_type="text/plain")
 
     # Health check endpoint
     @app.get("/health")
-    async def health_check(credentials: HTTPBasicCredentials = Depends(verify_token)):
+    async def health_check(
+        credentials: HTTPBasicCredentials = Depends(verify_token),
+    ) -> Dict[str, Any]:
         hub = SeleniumHub()
         is_running = await hub.ensure_hub_running()
         return {

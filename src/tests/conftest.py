@@ -1,7 +1,7 @@
 """Pytest configuration file."""
 
 import logging
-from typing import Optional
+from typing import Any, Dict, Generator, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import docker
@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 # Mock class for Docker client
 class MockDockerClient:
-    def __init__(self):
+    def __init__(self) -> None:
         self.containers = MagicMock()
         self.networks = MagicMock()
         self.containers.list.return_value = []
@@ -25,12 +25,12 @@ class MockDockerClient:
 
 # Mock class for Kubernetes client
 class MockK8sClient:
-    def __init__(self):
+    def __init__(self) -> None:
         self.CoreV1Api = MagicMock
         self.AppsV1Api = MagicMock
 
 
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     """Configure pytest."""
     # No deprecated asyncio_default_fixture_loop_scope config
     # No-op
@@ -42,25 +42,25 @@ def pytest_configure(config):
 
 
 @pytest.fixture
-def mock_docker_client():
+def mock_docker_client() -> Generator[MockDockerClient, Any, None]:
     """Mock Docker client."""
     with patch("docker.from_env") as mock:
         mock.return_value = MockDockerClient()
-        yield mock
+        yield mock.return_value
 
 
 @pytest.fixture
-def mock_k8s_client():
+def mock_k8s_client() -> Generator[Tuple[MagicMock, MagicMock], Any, None]:
     """Mock Kubernetes client."""
     with patch("kubernetes.client.CoreV1Api") as core_mock:
         with patch("kubernetes.client.AppsV1Api") as apps_mock:
             core_mock.return_value = MagicMock()
             apps_mock.return_value = MagicMock()
-            yield (core_mock, apps_mock)
+            yield (core_mock.return_value, apps_mock.return_value)
 
 
 @pytest.fixture
-def mock_jwt():
+def mock_jwt() -> Generator[MagicMock, Any, None]:
     """Mock JWT functionality."""
     with patch("app.auth.oauth.jwt") as mock:
         # Create a mock for the Claims object
@@ -99,7 +99,7 @@ def mock_jwt():
 
 
 # Async mock for verify_token
-async def mock_verify_token_func():
+async def mock_verify_token_func() -> Dict[str, str]:
     """Mock async function for token verification."""
     return {
         "sub": "test-agent",
@@ -108,10 +108,10 @@ async def mock_verify_token_func():
 
 
 @pytest.fixture
-def mock_verify_token():
+def mock_verify_token() -> Generator[AsyncMock, Any, None]:
     """Mock the token verification."""
     # Create AsyncMock that returns properly structured dict
-    mock = AsyncMock()
+    mock: AsyncMock = AsyncMock()
     mock.return_value = {
         "sub": "test-agent",
         "scope": "browser:create browser:status",
@@ -122,12 +122,12 @@ def mock_verify_token():
 
 
 @pytest.fixture
-def mock_selenium_hub():
+def mock_selenium_hub() -> Generator[MagicMock, Any, None]:
     """Mock the Selenium Hub."""
     hub_mock = MagicMock()
 
     # Create browsers method should return string IDs (not MagicMock objects)
-    async def mock_create_browsers(*args, **kwargs):
+    async def mock_create_browsers(*args: Any, **kwargs: Any) -> list[str]:
         return ["browser-1", "browser-2"]
 
     hub_mock.create_browsers = mock_create_browsers
@@ -149,7 +149,7 @@ def mock_selenium_hub():
 
 
 @pytest.fixture
-def e2e_client():
+def e2e_client() -> TestClient:
     """Create a test client for E2E tests with no dependency overrides."""
 
     # For E2E tests, we don't override dependencies - we test with real components
@@ -157,7 +157,7 @@ def e2e_client():
 
 
 @pytest.fixture(scope="session")
-def e2e_auth_headers():
+def e2e_auth_headers() -> Dict[str, str]:
     """Return static auth headers for E2E tests (no Hydra/OAuth required)."""
     from app.core.settings import settings
 
@@ -170,12 +170,12 @@ def e2e_auth_headers():
 
 
 @pytest.fixture(scope="session")
-def client():
+def client() -> TestClient:
     """Create a test client for the FastAPI app with dependency override for verify_token."""
     from app.dependencies import verify_token
     from fastapi.testclient import TestClient
 
-    async def always_valid_token(token: Optional[str] = None):
+    async def always_valid_token(token: Optional[str] = None) -> Dict[str, str]:
         return {"sub": "test-agent"}
 
     app.dependency_overrides[verify_token] = always_valid_token
@@ -183,7 +183,7 @@ def client():
 
 
 @pytest.fixture
-def auth_headers():
+def auth_headers() -> Dict[str, str]:
     """Create authentication headers for API requests."""
     from app.core.settings import settings
 
@@ -191,7 +191,7 @@ def auth_headers():
 
 
 @pytest.fixture
-def cleanup_docker_browsers():
+def cleanup_docker_browsers() -> Generator[None, Any, None]:
     """Cleanup Docker containers created by browser tests after each test."""
     client = docker.from_env()
     before = {c.id for c in client.containers.list(all=True)}
