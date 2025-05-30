@@ -84,6 +84,9 @@ class DockerHubBackend(HubBackend):
                     "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
                     "SE_NODE_MAX_SESSIONS": str(self.settings.MAX_BROWSER_INSTANCES or 10),
                     "SE_NODE_OVERRIDE_MAX_SESSIONS": "true",
+                    "SE_VNC_NO_PASSWORD": "true",
+                    "SE_OPTS": f"--username {self.settings.SELENIUM_HUB_USER} \
+                        --password {self.settings.SELENIUM_HUB_PASSWORD}",
                 },
             )
             logging.info("Selenium-hub container created and started.")
@@ -131,6 +134,12 @@ class DockerHubBackend(HubBackend):
                         "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                         "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
                         "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS or 1),
+                        "SE_HUB_USER": getattr(self.settings, "SELENIUM_HUB_USER", None)
+                        or getattr(self.settings, "selenium_hub_user", None)
+                        or "user",
+                        "SE_HUB_PASSWORD": getattr(self.settings, "SELENIUM_HUB_PASSWORD", None)
+                        or getattr(self.settings, "selenium_hub_password", None)
+                        or "CHANGE_ME",
                     },
                     mem_limit=config.resources.memory,
                     cpu_count=int(config.resources.cpu),  # Convert cpu to int

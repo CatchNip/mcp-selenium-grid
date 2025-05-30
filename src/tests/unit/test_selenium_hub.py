@@ -1,38 +1,20 @@
 """Unit tests for SeleniumHub service."""
 
+from http import HTTPStatus
 from typing import Any, Generator, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.core import settings as core_settings
 from app.core.models import BrowserConfig, ContainerResources
-from app.services.selenium_hub import SeleniumHub
-from docker.errors import NotFound
-
-
-@pytest.fixture
-def mock_docker_client() -> MagicMock:
-    mock_client = MagicMock()
-    mock_container = MagicMock()
-    mock_container.status = "running"
-    mock_container.name = "selenium-hub"
-    mock_container.id = "container-123456789012"
-    mock_client.containers.run.return_value = mock_container
-    mock_client.containers.list.return_value = [mock_container]
-    mock_client.networks.create.return_value = MagicMock(name="selenium-grid")
-    mock_client.containers.get.side_effect = lambda name: (
-        mock_container if name == "selenium-hub" else NotFound(f"Container '{name}' not found")
-    )
-    mock_client.networks.get.side_effect = lambda name: (
-        MagicMock(name="selenium-grid")
-        if name == "selenium-grid"
-        else NotFound(f"Network '{name}' not found")
-    )
-    return mock_client
+from app.services.selenium_hub.k8s_backend import KubernetesHubBackend
+from app.services.selenium_hub.selenium_hub import SeleniumHub
+from kubernetes.client.exceptions import ApiException
 
 
 @pytest.fixture
 def selenium_hub(mock_docker_client: MagicMock) -> Generator[SeleniumHub, Any, Any]:
+    """Fixture that yields a SeleniumHub instance with a mocked Docker client."""
     with patch(
         "app.services.selenium_hub.docker_backend.docker.from_env",
         return_value=mock_docker_client,
@@ -53,6 +35,7 @@ def selenium_hub(mock_docker_client: MagicMock) -> Generator[SeleniumHub, Any, A
 def selenium_hub_k8s(
     mock_docker_client: MagicMock, monkeypatch: Any
 ) -> Generator[Tuple[SeleniumHub, MagicMock], Any, Any]:
+    """Fixture that yields a SeleniumHub instance and a mocked K8s backend."""
     # Patch settings to use kubernetes
     mock_settings = MagicMock(spec=core_settings.Settings)
     mock_settings.DEPLOYMENT_MODE = "kubernetes"
@@ -103,9 +86,21 @@ def selenium_hub_k8s(
         yield hub, mock_k8s_backend  # Yield the hub and the mocked backend
 
 
+@pytest.fixture
+def mock_backend(
+    mocker: Any, mock_k8s_clients: tuple[MagicMock, MagicMock]
+) -> tuple[SeleniumHub, MagicMock]:
+    """Fixture for a SeleniumHub with a mocked Kubernetes backend."""
+    backend = mocker.MagicMock(spec=KubernetesHubBackend)
+    hub = SeleniumHub()
+    hub.manager.backend = backend
+    return hub, backend
+
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_ensure_docker_hub_creates_network(selenium_hub: SeleniumHub) -> None:
+    """Test that ensure_hub_running creates the network if not present."""
     # Only test the public interface and that ensure_hub_running returns True
     result = await selenium_hub.ensure_hub_running()
     assert result is True
@@ -114,6 +109,7 @@ async def test_ensure_docker_hub_creates_network(selenium_hub: SeleniumHub) -> N
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_ensure_docker_hub_restarts_stopped_hub(selenium_hub: SeleniumHub) -> None:
+    """Test that ensure_hub_running restarts the hub if it is stopped."""
     # Only test the public interface and that ensure_hub_running returns True
     result = await selenium_hub.ensure_hub_running()
     assert result is True
@@ -122,6 +118,7 @@ async def test_ensure_docker_hub_restarts_stopped_hub(selenium_hub: SeleniumHub)
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_create_docker_browser(selenium_hub: SeleniumHub) -> None:
+    """Test that create_browsers returns a list with one browser ID for Docker."""
     # The mock is configured in the fixture mock_selenium_hub, so no assignment needed here
     browser_ids = await selenium_hub.create_browsers(browser_type="chrome", count=1)
     assert isinstance(browser_ids, list)
@@ -133,7 +130,7 @@ async def test_create_docker_browser(selenium_hub: SeleniumHub) -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_create_browsers_validates_type(selenium_hub: SeleniumHub) -> None:
-    """Test browser type validation."""
+    """Test that create_browsers raises KeyError for unsupported browser type."""
     with pytest.raises(KeyError) as excinfo:
         await selenium_hub.create_browsers(browser_type="invalid", count=1)
     assert "Unsupported browser type: invalid" in str(excinfo.value)
@@ -142,7 +139,7 @@ async def test_create_browsers_validates_type(selenium_hub: SeleniumHub) -> None
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_create_browsers_validates_count(selenium_hub: SeleniumHub) -> None:
-    """Test browser count validation."""
+    """Test that create_browsers raises ValueError for non-positive count."""
     with pytest.raises(ValueError) as excinfo:
         await selenium_hub.create_browsers(browser_type="chrome", count=0)
     assert "Browser count must be positive" in str(excinfo.value)
@@ -153,7 +150,7 @@ async def test_create_browsers_validates_count(selenium_hub: SeleniumHub) -> Non
 async def test_create_browsers_handles_max_instances(
     selenium_hub: SeleniumHub, monkeypatch: Any
 ) -> None:
-    """Test handling max browser instances limit."""
+    """Test that create_browsers raises ValueError if max instances exceeded."""
     monkeypatch.setattr("app.core.settings.settings.MAX_BROWSER_INSTANCES", 1)
 
     with pytest.raises(ValueError) as excinfo:
@@ -170,6 +167,7 @@ async def test_create_browsers_handles_max_instances(
 async def test_ensure_k8s_hub_creates_namespace(
     selenium_hub_k8s: Tuple[SeleniumHub, MagicMock],
 ) -> None:
+    """Test that ensure_hub_running calls the backend's ensure_hub_running for K8s."""
     # This test verifies that ensure_hub_running calls the backend's ensure_hub_running method.
     # The specific K8s API interactions are tested in test_k8s_backend.py.
     hub, mock_k8s_backend = selenium_hub_k8s
@@ -187,6 +185,7 @@ async def test_ensure_k8s_hub_creates_namespace(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_create_k8s_browser(selenium_hub_k8s: Tuple[SeleniumHub, MagicMock]) -> None:
+    """Test that create_browsers calls the backend's create_browsers for K8s."""
     # This test verifies that create_browsers calls the backend's create_browsers method
     # and correctly handles the return value.
     hub, mock_k8s_backend = selenium_hub_k8s
@@ -206,3 +205,39 @@ async def test_create_k8s_browser(selenium_hub_k8s: Tuple[SeleniumHub, MagicMock
     assert (
         browser_ids == ["mock-k8s-browser-id"] * count
     )  # Assert the expected return value from the mocked backend (multiplied by count)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_ensure_k8s_hub_restarts_stopped_hub(
+    selenium_hub_k8s: Tuple[SeleniumHub, MagicMock],
+) -> None:
+    """Test that ensure_hub_running restarts the hub if it is stopped in K8s."""
+    hub, mock_k8s_backend = selenium_hub_k8s
+
+    # Simulate a stopped hub by making ensure_hub_running return False initially
+    CALL_COUNT = 2
+    mock_k8s_backend.ensure_hub_running.side_effect = [False, True]
+
+    result = await hub.ensure_hub_running()
+
+    assert result is True  # ensure_hub_running should return True on success
+    # Assert that ensure_hub_running was called twice: once for the initial check, once for the restart
+    assert mock_k8s_backend.ensure_hub_running.call_count == CALL_COUNT
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_create_browsers_with_insufficient_resources(
+    selenium_hub_k8s: Tuple[SeleniumHub, MagicMock], monkeypatch: Any
+) -> None:
+    """Test that create_browsers raises ResourceAllocationError if resources are insufficient."""
+    hub, mock_k8s_backend = selenium_hub_k8s
+
+    # Simulate insufficient resources by raising ApiException with 503 status
+    mock_k8s_backend.create_browsers.side_effect = ApiException(status=503)
+
+    with pytest.raises(ApiException) as excinfo:
+        await hub.create_browsers(browser_type="chrome", count=1)
+
+    assert excinfo.value.status == HTTPStatus.SERVICE_UNAVAILABLE  # 503

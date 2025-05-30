@@ -3,7 +3,7 @@
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBasicCredentials
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
 from app.core.settings import settings
@@ -41,7 +41,7 @@ HTTP_500_INTERNAL_SERVER_ERROR = 500
     status_code=HTTP_201_CREATED,
 )
 async def create_browsers(
-    request: BrowserRequest, credentials: HTTPBasicCredentials = Depends(verify_token)
+    request: BrowserRequest, credentials: HTTPAuthorizationCredentials = Depends(verify_token)
 ) -> BrowserResponse:
     """Create browser instances in Selenium Grid."""
     if settings.MAX_BROWSER_INSTANCES and request.count > settings.MAX_BROWSER_INSTANCES:
@@ -60,7 +60,8 @@ async def create_browsers(
     hub = SeleniumHub()
     try:
         browser_ids = await hub.create_browsers(
-            count=request.count, browser_type=request.browser_type
+            count=request.count,
+            browser_type=request.browser_type,
         )
     except Exception as e:
         # Log the error and current browser configs for diagnostics
@@ -71,7 +72,7 @@ async def create_browsers(
         )
         raise HTTPException(status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-    return BrowserResponse(browser_ids=browser_ids, hub_url=settings.SELENIUM_HUB_BASE_URL)
+    return BrowserResponse(browser_ids=browser_ids, hub_url=settings.SELENIUM_HUB_BASE_URL_DYNAMIC)
 
 
 @router.get(
@@ -79,12 +80,16 @@ async def create_browsers(
     response_model=Dict[str, Any],
 )
 async def get_hub_status(
-    credentials: HTTPBasicCredentials = Depends(verify_token),
+    credentials: HTTPAuthorizationCredentials = Depends(verify_token),
 ) -> Dict[str, Any]:
     """Get Selenium Grid status."""
     hub = SeleniumHub()
-    is_running = await hub.ensure_hub_running()
-
+    is_running = await hub.ensure_hub_running(
+        retries=settings.K8S_MAX_RETRIES if settings.DEPLOYMENT_MODE == "kubernetes" else 2,
+        wait_seconds=(
+            settings.K8S_RETRY_DELAY_SECONDS if settings.DEPLOYMENT_MODE == "kubernetes" else 0.0
+        ),
+    )
     return {
         "hub_running": is_running,
         "deployment_mode": settings.DEPLOYMENT_MODE,

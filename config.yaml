@@ -1,14 +1,14 @@
 development: true
 api_token: CHANGE_ME
-selenium_hub_port: 4444 # this need to improve, some config are hardcoded especially in kubernetes. Fix first teh e2e tests
-selenium_hub_base_url: http://localhost:4444
+selenium_hub_port: 4444
 selenium_node_max_sessions: 1
+selenium_hub_user: user
+selenium_hub_password: CHANGE_ME
 max_browser_instances: 5
 deployment_mode: docker # or kubernetes
-#k8s_namespace: selenium-grid-dev
+k8s_namespace: selenium-grid-dev
 allowed_origins:
   - http://localhost:8000
-  - http://localhost:3000
 browser_configs:
   chrome:
     image: selenium/node-chrome:4.18.1

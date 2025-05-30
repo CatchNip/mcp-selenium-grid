@@ -239,7 +239,15 @@ class KubernetesHubBackend(HubBackend):
                                     name=f"selenium-node-{browser_type}",
                                     image=config.image,
                                     ports=[V1ContainerPort(container_port=config.port)],
-                                    env=[V1EnvVar(name="SE_EVENT_BUS_HOST", value="selenium-hub")],
+                                    env=[
+                                        V1EnvVar(name="SE_EVENT_BUS_HOST", value="selenium-hub"),
+                                        V1EnvVar(name="SE_VNC_NO_PASSWORD", value="true"),
+                                        V1EnvVar(
+                                            name="SE_OPTS",
+                                            value=f"--username {self.settings.SELENIUM_HUB_USER} \
+                                                --password {self.settings.SELENIUM_HUB_PASSWORD}",
+                                        ),
+                                    ],
                                     resources=V1ResourceRequirements(
                                         limits={
                                             "cpu": config.resources.cpu,
@@ -299,6 +307,8 @@ class KubernetesHubBackend(HubBackend):
                 V1EnvVar(name="SE_EVENT_BUS_HOST", value="localhost"),
                 V1EnvVar(name="SE_EVENT_BUS_PUBLISH_PORT", value="4442"),
                 V1EnvVar(name="SE_EVENT_BUS_SUBSCRIBE_PORT", value="4443"),
+                V1EnvVar(name="SE_HUB_USER", value=self.settings.selenium_hub_user),
+                V1EnvVar(name="SE_HUB_PASSWORD", value=self.settings.selenium_hub_password),
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "128Mi"},

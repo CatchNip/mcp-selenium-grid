@@ -18,13 +18,14 @@ class SeleniumHub:
         self.browser_configs: Dict[str, BrowserConfig] = settings.BROWSER_CONFIGS
 
     @track_hub_metrics()
-    async def ensure_hub_running(self) -> bool:
-        return await self.manager.ensure_hub_running(self.browser_configs)
+    async def ensure_hub_running(self, retries: int = 2, wait_seconds: float = 0.0) -> bool:
+        """
+        Ensure the hub is running, delegating retry/wait logic to the manager.
+        """
+        return await self.manager.ensure_hub_running(retries=retries, wait_seconds=wait_seconds)
 
     @track_browser_metrics()
     async def create_browsers(self, count: int, browser_type: str) -> list[str]:
-        if not await self.ensure_hub_running():
-            raise RuntimeError("Failed to ensure Selenium Hub is running")
         if count <= 0:
             raise ValueError("Browser count must be positive")
         if browser_type not in self.browser_configs:

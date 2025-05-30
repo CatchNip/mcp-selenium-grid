@@ -23,9 +23,15 @@ class Settings(BaseSettings):
     VERSION: str = Field(default="0.1.0")
     API_V1_STR: str = Field(default="/api/v1")
 
+    # API Token
+    API_TOKEN: str = Field(default="CHANGE_ME")
+
+    # Selenium Hub Auth
+    SELENIUM_HUB_USER: str = Field(default="user")
+    SELENIUM_HUB_PASSWORD: str = Field(default="CHANGE_ME")
+
     # Selenium Settings
     SELENIUM_HUB_PORT: int = Field(default=4444)
-    SELENIUM_HUB_BASE_URL: str = Field(default="http://localhost:4444")
     MAX_BROWSER_INSTANCES: Optional[int] = Field(default=None)
     SE_NODE_MAX_SESSIONS: int = Field(default=1)
 
@@ -33,7 +39,11 @@ class Settings(BaseSettings):
     DEPLOYMENT_MODE: str = Field(
         default="kubernetes" if getenv_as_bool("IS_RUNNING_IN_DOCKER") else "docker"
     )
+
+    # Kubernetes Settings
     K8S_NAMESPACE: str = Field(default="selenium-grid")
+    K8S_RETRY_DELAY_SECONDS: int = Field(default=2)
+    K8S_MAX_RETRIES: int = Field(default=5)
 
     # Security Settings
     BACKEND_CORS_ORIGINS: List[str] = Field(
@@ -43,13 +53,6 @@ class Settings(BaseSettings):
 
     # Browser Configurations
     BROWSER_CONFIGS: Dict[str, BrowserConfig] = Field(default_factory=dict)
-
-    # API Token
-    API_TOKEN: str = Field(default="CHANGE_ME")
-
-    # Kubernetes Settings
-    K8S_RETRY_DELAY_SECONDS: int = Field(default=2)
-    K8S_MAX_RETRIES: int = Field(default=5)
 
     model_config = SettingsConfigDict(
         yaml_file="config.yaml",
@@ -70,6 +73,21 @@ class Settings(BaseSettings):
                 cfg["resources"] = ContainerResources(**cfg["resources"])
             configs[name] = BrowserConfig(**cfg)
         return configs
+
+    @property
+    def SELENIUM_HUB_BASE_URL_DYNAMIC(self) -> str:
+        """
+        Dynamically determine the Selenium Hub base URL based on deployment mode.
+        - For 'docker': use 'http://localhost:4444'
+        - For 'kubernetes': use 'http://selenium-hub.{namespace}.svc.cluster.local:4444'
+        """
+        if self.DEPLOYMENT_MODE == "docker":
+            return f"http://localhost:{self.SELENIUM_HUB_PORT}"
+        elif self.DEPLOYMENT_MODE == "kubernetes":
+            return f"http://selenium-hub.{self.K8S_NAMESPACE}.svc.cluster.local:{self.SELENIUM_HUB_PORT}"
+        else:
+            # fallback to localhost for unknown modes
+            return f"http://localhost:{self.SELENIUM_HUB_PORT}"
 
     @override
     @classmethod

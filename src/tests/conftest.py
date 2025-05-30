@@ -1,33 +1,14 @@
 """Pytest configuration file."""
 
 import logging
-from typing import Any, Dict, Generator, Optional, Tuple
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Dict, Generator, Optional
+from unittest.mock import MagicMock
 
 import docker
 import pytest
 from app.main import app
-from authlib.jose.errors import ExpiredTokenError, InvalidClaimError
+from docker.errors import NotFound  # Add NotFound for mocking
 from fastapi.testclient import TestClient
-
-
-# Mock class for Docker client
-class MockDockerClient:
-    def __init__(self) -> None:
-        self.containers = MagicMock()
-        self.networks = MagicMock()
-        self.containers.list.return_value = []
-        self.networks.list.return_value = []
-        self.api = MagicMock()
-        self.api.create_container.return_value = {"Id": "mock-container-id"}
-        self.api.create_network.return_value = {"Id": "mock-network-id"}
-
-
-# Mock class for Kubernetes client
-class MockK8sClient:
-    def __init__(self) -> None:
-        self.CoreV1Api = MagicMock
-        self.AppsV1Api = MagicMock
 
 
 def pytest_configure(config: Any) -> None:
@@ -37,60 +18,92 @@ def pytest_configure(config: Any) -> None:
 
 
 # ==============================================================================
-# UNIT TEST FIXTURES
+# UNIT TEST FIXTURES AND MOCKS (pytest-mock style)
 # ==============================================================================
 
 
 @pytest.fixture
-def mock_docker_client() -> Generator[MockDockerClient, Any, None]:
-    """Mock Docker client."""
-    with patch("docker.from_env") as mock:
-        mock.return_value = MockDockerClient()
-        yield mock.return_value
+def mock_docker_client(mocker: Any) -> MagicMock:
+    """
+    Single, DRY fixture for a fully mocked Docker client for all unit tests.
+    Uses helper functions for per-test container/network customization.
+    """
+    client: MagicMock = mocker.MagicMock(name="DockerClientMock")
+    # Containers
+    containers = mocker.MagicMock(name="ContainersMock")
+    containers.list.return_value = []
+    containers.get.side_effect = containers.run.side_effect = containers.create.side_effect = (
+        lambda *args, **kwargs: create_mock_container(mocker)
+    )
+    client.containers = containers
+    # Networks
+    networks = mocker.MagicMock(name="NetworksMock")
+    networks.list.return_value = []
+    networks.get.side_effect = networks.create.side_effect = (
+        lambda *args, **kwargs: create_mock_network(mocker)
+    )
+    client.networks = networks
+    # Images
+    images = mocker.MagicMock(name="ImagesMock")
+    images.get.return_value = mocker.MagicMock(name="ImageMock")
+    images.pull.return_value = mocker.MagicMock(name="ImagePullMock")
+    client.images = images
+    # API
+    api = mocker.MagicMock(name="ApiMock")
+    api.create_container.return_value = {"Id": "mock-container-id"}
+    api.create_network.return_value = {"Id": "mock-network-id"}
+    client.api = api
+    # Patch docker.from_env everywhere
+    mocker.patch("docker.from_env", return_value=client)
+    mocker.patch("app.services.selenium_hub.docker_backend.docker.from_env", return_value=client)
+    return client
 
 
 @pytest.fixture
-def mock_k8s_client() -> Generator[Tuple[MagicMock, MagicMock], Any, None]:
-    """Mock Kubernetes client."""
-    with patch("kubernetes.client.CoreV1Api") as core_mock:
-        with patch("kubernetes.client.AppsV1Api") as apps_mock:
-            core_mock.return_value = MagicMock()
-            apps_mock.return_value = MagicMock()
-            yield (core_mock.return_value, apps_mock.return_value)
+def docker_not_found() -> type:
+    """Fixture to provide docker.errors.NotFound exception class for use in tests."""
+    return NotFound
 
 
 @pytest.fixture
-def mock_jwt() -> Generator[MagicMock, Any, None]:
-    """Mock JWT functionality."""
-    with patch("app.auth.oauth.jwt") as mock:
-        # Create a mock for the Claims object
-        mock_claims = MagicMock()
-        mock_claims.validate.return_value = None
+def mock_k8s_clients(mocker: Any) -> tuple[MagicMock, MagicMock]:
+    """Fixture that returns MagicMock CoreV1Api and AppsV1Api clients."""
+    core = mocker.MagicMock()
+    apps = mocker.MagicMock()
+    return core, apps
 
-        # Make it dict-like to be returned properly
-        test_claims = {
-            "sub": "test-agent",
-            "iss": "https://test-auth.example.com",
-            "aud": "test-audience",
-            "scope": "browser:create browser:status",
-        }
 
-        # Initialize the mock as a dict-like object
-        mock_claims.update(test_claims)
-        mock_claims.__getitem__.side_effect = test_claims.__getitem__
-        mock_claims.__iter__.side_effect = test_claims.__iter__
-        mock_claims.items.side_effect = test_claims.items
-        mock_claims.keys.side_effect = test_claims.keys
-        mock_claims.values.side_effect = test_claims.values
+def create_mock_container(
+    mocker: Any,
+    status: str = "running",
+    name: str = "mock-container",
+    id: str = "container-id",
+    image_tags: Optional[list[str]] = None,
+) -> MagicMock:
+    """Create a MagicMock Docker container with the given attributes."""
+    if image_tags is None:
+        image_tags = ["image:latest"]
+    mock_container = mocker.MagicMock()
+    mock_container.status = status
+    mock_container.name = name
+    mock_container.id = id
+    mock_container.image = mocker.MagicMock(tags=image_tags)
+    mock_container.attrs = {"Config": {"Image": image_tags[0]}}
+    mock_container.remove = mocker.MagicMock()
+    mock_container.restart = mocker.MagicMock()
+    mock_container.reload = mocker.MagicMock()
+    return mock_container  # type: ignore[no-any-return]
 
-        # Set the mock decode method to return the mock Claims
-        mock.decode.return_value = mock_claims
 
-        # Define custom exception classes
-        mock.InvalidClaimError = InvalidClaimError
-        mock.ExpiredTokenError = ExpiredTokenError
-
-        yield mock
+def create_mock_network(
+    mocker: Any, name: str = "mock-network", id: str = "network-id"
+) -> MagicMock:
+    """Create a MagicMock Docker network with the given attributes."""
+    mock_network = mocker.MagicMock()
+    mock_network.name = name
+    mock_network.id = id
+    mock_network.remove = mocker.MagicMock()
+    return mock_network  # type: ignore[no-any-return]
 
 
 # ==============================================================================
@@ -98,70 +111,9 @@ def mock_jwt() -> Generator[MagicMock, Any, None]:
 # ==============================================================================
 
 
-# Async mock for verify_token
-async def mock_verify_token_func() -> Dict[str, str]:
-    """Mock async function for token verification."""
-    return {
-        "sub": "test-agent",
-        "scope": "browser:create browser:status",
-    }
-
-
-@pytest.fixture
-def mock_verify_token() -> Generator[AsyncMock, Any, None]:
-    """Mock the token verification."""
-    # Create AsyncMock that returns properly structured dict
-    mock: AsyncMock = AsyncMock()
-    mock.return_value = {
-        "sub": "test-agent",
-        "scope": "browser:create browser:status",
-    }
-
-    with patch("app.auth.oauth.verify_token", mock):
-        yield mock
-
-
-@pytest.fixture
-def mock_selenium_hub() -> Generator[MagicMock, Any, None]:
-    """Mock the Selenium Hub."""
-    hub_mock = MagicMock()
-
-    # Create browsers method should return string IDs (not MagicMock objects)
-    async def mock_create_browsers(*args: Any, **kwargs: Any) -> list[str]:
-        return ["browser-1", "browser-2"]
-
-    hub_mock.create_browsers = mock_create_browsers
-    hub_mock.ensure_hub_running = AsyncMock(return_value=True)
-
-    # Mock other methods that might be called
-    hub_mock.get_browser_status = AsyncMock(return_value={"status": "ready"})
-    hub_mock.get_browser_health = AsyncMock(return_value={"cpu_usage": 10, "memory_usage": 200})
-    hub_mock.delete_browser = AsyncMock(return_value=True)
-
-    with patch("app.api.browsers.SeleniumHub", return_value=hub_mock):
-        with patch("app.services.selenium_hub.SeleniumHub", return_value=hub_mock):
-            yield hub_mock
-
-
 # ==============================================================================
 # E2E TEST FIXTURES
 # ==============================================================================
-
-
-@pytest.fixture
-def e2e_client() -> TestClient:
-    """Create a test client for E2E tests with no dependency overrides."""
-
-    # For E2E tests, we don't override dependencies - we test with real components
-    return TestClient(app)
-
-
-@pytest.fixture(scope="session")
-def e2e_auth_headers() -> Dict[str, str]:
-    """Return static auth headers for E2E tests (no Hydra/OAuth required)."""
-    from app.core.settings import settings
-
-    return {"Authorization": f"Bearer {settings.API_TOKEN}"}
 
 
 # ==============================================================================
