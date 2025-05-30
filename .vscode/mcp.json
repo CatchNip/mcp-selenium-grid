@@ -1,0 +1,19 @@
+{
+  "inputs": [
+    {
+      "id": "mcp_selenium_grid_api_token",
+      "description": "API Token",
+      "type": "promptString",
+      "password": true
+    }
+  ],
+  "servers": {
+    "mcp-selenium-grid": {
+      "type": "sse",
+      "url": "http://localhost:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:mcp_selenium_grid_api_token}"
+      }
+    }
+  }
+}

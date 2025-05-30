@@ -33,6 +33,7 @@ venv/
 .vscode/*
 !.vscode/
 !.vscode/settings.json
+!.vscode/mcp.json
 .code-workspace
 
 # OS
