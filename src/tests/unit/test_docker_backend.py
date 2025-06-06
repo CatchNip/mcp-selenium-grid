@@ -9,20 +9,6 @@ from app.services.selenium_hub.docker_backend import DockerHubBackend
 from docker.errors import APIError
 
 
-@pytest.fixture
-def docker_backend(mock_docker_client: MagicMock, mocker: MagicMock) -> DockerHubBackend:
-    """Fixture for DockerHubBackend with a mocked Docker client."""
-    mock_settings = mocker.MagicMock()
-    mock_settings.DOCKER_NETWORK = "test-network"
-    mock_settings.DOCKER_HUB_IMAGE = "selenium/hub:latest"
-    mock_settings.DOCKER_NODE_IMAGE = "selenium/node-chrome:latest"
-    mock_settings.SE_NODE_MAX_SESSIONS = 5
-    backend = DockerHubBackend(mock_settings)
-    # Use mocker to patch docker.from_env to return mock_docker_client
-    mocker.patch("docker.from_env", return_value=mock_docker_client)
-    return backend
-
-
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_ensure_hub_running_creates_network(
@@ -107,3 +93,25 @@ async def test_create_browser_pulls_image_if_not_found(
     assert result is not None
     assert isinstance(result[0], str)
     mock_image_pull.assert_called_once_with("selenium/node-chrome:latest")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_delete_browsers_success(docker_backend: DockerHubBackend, mocker: MagicMock) -> None:
+    """Test that delete_browsers returns only successfully deleted IDs."""
+    mocker.patch.object(
+        docker_backend,
+        "delete_browser",
+        side_effect=lambda bid: bid != "fail",
+    )
+    ids = ["ok1", "fail", "ok2"]
+    result = await docker_backend.delete_browsers(ids)
+    assert result == ["ok1", "ok2"]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_delete_browsers_empty(docker_backend: DockerHubBackend) -> None:
+    """Test that delete_browsers returns empty list if no IDs provided."""
+    result = await docker_backend.delete_browsers([])
+    assert result == []

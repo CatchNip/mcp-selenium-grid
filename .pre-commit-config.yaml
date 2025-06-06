@@ -10,3 +10,4 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+        args: ["--line-length", "100", "--target-version", "py312"]

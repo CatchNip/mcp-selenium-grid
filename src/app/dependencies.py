@@ -1,5 +1,6 @@
 """Token authentication for MCP Server."""
 
+from functools import lru_cache
 from typing import Dict
 
 from fastapi import Depends, HTTPException, status
@@ -10,7 +11,13 @@ from fastapi.security import (
     HTTPBearer,
 )
 
-from app.core.settings import settings
+from app.core.settings import Settings
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
+
 
 # HTTP Bearer token setup
 security = HTTPBearer()
@@ -19,6 +26,7 @@ basic_auth_scheme = HTTPBasic(auto_error=True)
 
 async def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    settings: Settings = Depends(get_settings),
 ) -> Dict[str, str]:
     """Verify API token and return user information."""
     if credentials.credentials != settings.API_TOKEN:
@@ -31,6 +39,7 @@ async def verify_token(
 
 def verify_basic_auth(
     credentials: HTTPBasicCredentials = Depends(basic_auth_scheme),
+    settings: Settings = Depends(get_settings),
 ) -> HTTPBasicCredentials:
     """
     Verifies HTTP Basic credentials against settings (from config.yaml).

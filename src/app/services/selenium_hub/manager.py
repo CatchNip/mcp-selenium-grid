@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+import asyncio
+from typing import Any, ClassVar, Dict, List, Type
 
 from .backend import HubBackend
 from .docker_backend import DockerHubBackend
@@ -8,13 +9,20 @@ from .k8s_backend import KubernetesHubBackend
 class SeleniumHubManager:
     """Selects and delegates to the correct backend for cleanup and manages retries."""
 
-    def __init__(self, mode: str, settings: Any) -> None:
-        if mode == "docker":
-            self.backend: HubBackend = DockerHubBackend(settings)
-        elif mode == "kubernetes":
-            self.backend = KubernetesHubBackend(settings)
-        else:
-            raise ValueError(f"Unknown backend mode: {mode}")
+    _BACKEND_MAP: ClassVar[Dict[str, Type[HubBackend]]] = {
+        "docker": DockerHubBackend,
+        "kubernetes": KubernetesHubBackend,
+    }
+
+    def __init__(self, settings: Any) -> None:
+        try:
+            backend_cls: Type[HubBackend] = self._BACKEND_MAP[settings.DEPLOYMENT_MODE]
+        except KeyError:
+            valid = ", ".join(self._BACKEND_MAP.keys())
+            raise ValueError(
+                f"Unknown backend mode: {settings.DEPLOYMENT_MODE!r}. Valid modes are: {valid}."
+            )
+        self.backend: HubBackend = backend_cls(settings)
 
     def cleanup(self) -> None:
         self.backend.cleanup()
@@ -27,8 +35,6 @@ class SeleniumHubManager:
             if await self.backend.ensure_hub_running():
                 return True
             if attempt < retries - 1 and wait_seconds > 0:
-                import asyncio
-
                 await asyncio.sleep(wait_seconds)
         return False
 
@@ -41,3 +47,9 @@ class SeleniumHubManager:
         if not await self.ensure_hub_running():
             raise RuntimeError("Failed to ensure Selenium Hub is running")
         return await self.backend.create_browsers(count, browser_type, browser_configs)
+
+    async def delete_browsers(self, browser_ids: List[str]) -> List[str]:
+        """
+        Delete multiple browser containers by their IDs in parallel. Returns a list of successfully deleted IDs.
+        """
+        return await self.backend.delete_browsers(browser_ids)

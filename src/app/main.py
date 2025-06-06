@@ -1,9 +1,10 @@
 """MCP Server for managing Selenium Grid instances."""
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi_mcp import FastApiMCP
@@ -11,35 +12,40 @@ from prometheus_client import generate_latest
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.responses import Response
 
-from app.core.settings import settings
-from app.dependencies import verify_token
+from app.dependencies import get_settings, verify_token
 from app.routers import browsers
 from app.routers.selenium_proxy import router as selenium_proxy_router
 from app.services.selenium_hub.manager import SeleniumHubManager
 from app.services.selenium_hub.selenium_hub import SeleniumHub
 
-HTTP_500_INTERNAL_SERVER_ERROR = 500
-
 
 def create_application() -> FastAPI:
     """Create FastAPI application for MCP."""
+    # Initialize settings once at the start
+    settings = get_settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
+        # Initialize browsers_instances state and its async lock
+        app.state.browsers_instances = {}
+        app.state.browsers_instances_lock = asyncio.Lock()
+
+        # Initialize Selenium Hub singleton
+        # and ensure it is running before starting the application
         try:
-            hub = SeleniumHub()
+            hub = SeleniumHub(settings)  # This will create or return the singleton instance
             await hub.ensure_hub_running(
                 retries=5,
                 wait_seconds=2.0,
             )
         except Exception as e:
             raise HTTPException(
-                status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to initialize Selenium Hub: {e!s}",
             )
         yield
-        # --- MCP Server shutdown: remove Selenium Hub resources (Docker or Kubernetes) ---
-        manager = SeleniumHubManager(settings.DEPLOYMENT_MODE, settings)
+        # --- Server shutdown: remove Selenium Hub resources (Docker or Kubernetes) ---
+        manager = SeleniumHubManager(settings)
         manager.cleanup()
 
     app = FastAPI(
@@ -47,6 +53,7 @@ def create_application() -> FastAPI:
         version=settings.VERSION,
         description="MCP Server for managing Selenium Grid instances",
         lifespan=lifespan,
+        dependencies=[Depends(get_settings)],
     )
 
     Instrumentator().instrument(app)
@@ -71,7 +78,7 @@ def create_application() -> FastAPI:
     async def health_check(
         credentials: HTTPAuthorizationCredentials = Depends(verify_token),
     ) -> Dict[str, Any]:
-        hub = SeleniumHub()
+        hub = SeleniumHub()  # This will return the singleton instance
         is_running = await hub.ensure_hub_running()
         return {
             "status": "healthy" if is_running else "unhealthy",

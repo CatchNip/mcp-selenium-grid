@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBasicCredentials
 
-from app.core.settings import settings
+from app.core.settings import Settings
 from app.dependencies import verify_basic_auth
 
-router = APIRouter(tags=["Selenium Proxy"])
+router = APIRouter(prefix="/selenium-hub", tags=["Selenium Hub"])
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +39,7 @@ FORWARDED_HEADERS = {
 # --- Utility Functions ---
 
 
-def _get_selenium_hub_url(suffix: str = "") -> str:
+def _get_selenium_hub_url(settings: Settings, suffix: str = "") -> str:
     """Construct Selenium Hub URL with proper path handling."""
     base = settings.SELENIUM_HUB_BASE_URL_DYNAMIC.rstrip("/") + "/"
     return urljoin(base, suffix.lstrip("/")) if suffix else base
@@ -142,33 +142,35 @@ async def proxy_selenium_request(
 # --- Route Handlers ---
 
 
-@router.get("/selenium-hub/", include_in_schema=False)
+@router.get("/", include_in_schema=False)
 async def selenium_hub_root_proxy(
     request: Request,
+    settings: Settings,
     basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
 ) -> Response:
     """Proxy Selenium Hub root (requires Basic Auth)."""
-    selenium_url = _get_selenium_hub_url()
+    selenium_url = _get_selenium_hub_url(settings)
     return await proxy_selenium_request(request, selenium_url, basic_auth, follow_redirects=True)
 
 
 @router.api_route(
-    "/selenium-hub/{path:path}",
+    "/{path:path}",
     methods=["GET", "POST", "DELETE"],
     response_class=Response,
 )
 async def selenium_hub_path_proxy(
     request: Request,
     path: str,
+    settings: Settings,
     basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
 ) -> Response:
     """Proxy all Selenium Hub subpaths (requires Basic Auth)."""
-    selenium_url = _get_selenium_hub_url(path)
+    selenium_url = _get_selenium_hub_url(settings, path)
     return await proxy_selenium_request(request, selenium_url, basic_auth)
 
 
 @router.get(
-    "/selenium-hub/ui",
+    "/ui",
     include_in_schema=False,
     response_class=RedirectResponse,
 )
@@ -178,19 +180,20 @@ async def selenium_hub_ui_redirect() -> RedirectResponse:
 
 
 @router.api_route(
-    "/selenium-hub/ui/{path:path}",
+    "/ui/{path:path}",
     methods=["GET", "POST", "DELETE"],
     response_class=Response,
 )
 @router.get(
-    "/selenium-hub/ui/",
+    "/ui",
     response_class=Response,
 )
 async def selenium_hub_ui_proxy(
     request: Request,
-    path: str = "",
+    settings: Settings,
     basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
+    path: str = "",
 ) -> Response:
     """Proxy all Selenium Hub UI static assets and API routes (requires Basic Auth)."""
-    selenium_url = _get_selenium_hub_url(f"ui/{path}")
+    selenium_url = _get_selenium_hub_url(settings, f"ui/{path}")
     return await proxy_selenium_request(request, selenium_url, basic_auth)

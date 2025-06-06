@@ -35,6 +35,29 @@ class BrowserConfig(BaseModel):
     port: int = 444
 
 
+class BrowserInstance(BaseModel):
+    """Represents a single browser instance."""
+
+    id: str
+    type: str
+    resources: ContainerResources
+
+    @field_validator("id")
+    @classmethod
+    def id_must_be_non_empty_string(cls, value: str) -> str:
+        if not value:
+            raise ValueError("`id` must be a non-empty string")
+        return value
+
+    @field_validator("type")
+    @classmethod
+    def type_must_be_valid_browser_type(cls, value: str) -> str:
+        valid_types = ["chrome", "firefox", "edge"]
+        if value not in valid_types:
+            raise ValueError(f"`type` must be one of {valid_types}")
+        return value
+
+
 # Example usage (optional)
 # config = BrowserConfig(
 #     image="selenium/node-chrome:latest",

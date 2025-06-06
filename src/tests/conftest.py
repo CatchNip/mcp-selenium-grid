@@ -1,14 +1,20 @@
 """Pytest configuration file."""
 
 import logging
-from typing import Any, Dict, Generator, Optional
+from typing import Any, Dict, Generator, Optional, Tuple
 from unittest.mock import MagicMock
 
+import app.core.settings as core_settings
 import docker
 import pytest
-from app.main import app
+from app.core.models import BrowserConfig, ContainerResources
+from app.core.settings import Settings
+from app.services.selenium_hub import SeleniumHub
+from app.services.selenium_hub.docker_backend import DockerHubBackend
+from app.services.selenium_hub.k8s_backend import KubernetesHubBackend
 from docker.errors import NotFound  # Add NotFound for mocking
 from fastapi.testclient import TestClient
+from pytest_mock import MockerFixture
 
 
 def pytest_configure(config: Any) -> None:
@@ -18,12 +24,48 @@ def pytest_configure(config: Any) -> None:
 
 
 # ==============================================================================
-# UNIT TEST FIXTURES AND MOCKS (pytest-mock style)
+# UNIT TEST FIXTURES AND MOCKS
 # ==============================================================================
 
 
+# DOCKER ========================================================================
+
+
+def create_mock_container(
+    mocker: MockerFixture,
+    status: str = "running",
+    name: str = "mock-container",
+    id: str = "container-id",
+    image_tags: Optional[list[str]] = None,
+) -> MagicMock:
+    """Create a MagicMock Docker container with the given attributes."""
+    if image_tags is None:
+        image_tags = ["image:latest"]
+    mock_container: MagicMock = mocker.MagicMock()
+    mock_container.status = status
+    mock_container.name = name
+    mock_container.id = id
+    mock_container.image = mocker.MagicMock(tags=image_tags)
+    mock_container.attrs = {"Config": {"Image": image_tags[0]}}
+    mock_container.remove = mocker.MagicMock()
+    mock_container.restart = mocker.MagicMock()
+    mock_container.reload = mocker.MagicMock()
+    return mock_container
+
+
+def create_mock_network(
+    mocker: MockerFixture, name: str = "mock-network", id: str = "network-id"
+) -> MagicMock:
+    """Create a MagicMock Docker network with the given attributes."""
+    mock_network: MagicMock = mocker.MagicMock()
+    mock_network.name = name
+    mock_network.id = id
+    mock_network.remove = mocker.MagicMock()
+    return mock_network
+
+
 @pytest.fixture
-def mock_docker_client(mocker: Any) -> MagicMock:
+def mock_docker_client(mocker: MockerFixture) -> MagicMock:
     """
     Single, DRY fixture for a fully mocked Docker client for all unit tests.
     Uses helper functions for per-test container/network customization.
@@ -66,44 +108,123 @@ def docker_not_found() -> type:
 
 
 @pytest.fixture
-def mock_k8s_clients(mocker: Any) -> tuple[MagicMock, MagicMock]:
-    """Fixture that returns MagicMock CoreV1Api and AppsV1Api clients."""
-    core = mocker.MagicMock()
-    apps = mocker.MagicMock()
-    return core, apps
+def docker_hub_settings(mocker: MockerFixture) -> MagicMock:
+    """Fixture to provide a mocked settings object for DockerHubBackend."""
+    settings: MagicMock = mocker.MagicMock(spec=core_settings.Settings())
+    settings.DEPLOYMENT_MODE = "docker"
+    settings.DOCKER_NETWORK = "test-network"
+    settings.DOCKER_HUB_IMAGE = "selenium/hub:latest"
+    settings.DOCKER_NODE_IMAGE = "selenium/node-chrome:latest"
+    settings.MAX_BROWSER_INSTANCES = 8
+    settings.SE_NODE_MAX_SESSIONS = 5
+    settings.BROWSER_CONFIGS = {
+        "chrome": BrowserConfig(
+            image="selenium/node-chrome:latest",
+            resources=ContainerResources(memory="1G", cpu="1"),
+            port=4444,
+        )
+    }  # Mock browser configs with full structure
+    settings.SELENIUM_HUB_USER = "test-user"
+    settings.SELENIUM_HUB_PASSWORD = "test-password"  # noqa: S105
+    return settings
 
 
-def create_mock_container(
-    mocker: Any,
-    status: str = "running",
-    name: str = "mock-container",
-    id: str = "container-id",
-    image_tags: Optional[list[str]] = None,
-) -> MagicMock:
-    """Create a MagicMock Docker container with the given attributes."""
-    if image_tags is None:
-        image_tags = ["image:latest"]
-    mock_container = mocker.MagicMock()
-    mock_container.status = status
-    mock_container.name = name
-    mock_container.id = id
-    mock_container.image = mocker.MagicMock(tags=image_tags)
-    mock_container.attrs = {"Config": {"Image": image_tags[0]}}
-    mock_container.remove = mocker.MagicMock()
-    mock_container.restart = mocker.MagicMock()
-    mock_container.reload = mocker.MagicMock()
-    return mock_container  # type: ignore[no-any-return]
+@pytest.fixture
+def docker_backend(
+    mock_docker_client: MagicMock, docker_hub_settings: Settings, mocker: MockerFixture
+) -> DockerHubBackend:
+    """Fixture for DockerHubBackend with a mocked Docker client."""
+    backend = DockerHubBackend(docker_hub_settings)
+    # Use mocker to patch docker.from_env to return mock_docker_client
+    mocker.patch("docker.from_env", return_value=mock_docker_client)
+    return backend
 
 
-def create_mock_network(
-    mocker: Any, name: str = "mock-network", id: str = "network-id"
-) -> MagicMock:
-    """Create a MagicMock Docker network with the given attributes."""
-    mock_network = mocker.MagicMock()
-    mock_network.name = name
-    mock_network.id = id
-    mock_network.remove = mocker.MagicMock()
-    return mock_network  # type: ignore[no-any-return]
+# KUBERNETES ====================================================================
+
+
+@pytest.fixture
+def mock_k8s_apis(mocker: MockerFixture) -> Tuple[MagicMock, MagicMock]:
+    """
+    Patches CoreV1Api and AppsV1Api so they use MagicMocks for the entire session.
+    """
+
+    # Patch kubernetes config loading functions to prevent real K8s environment access
+    mocker.patch("kubernetes.config.load_incluster_config", return_value=None)
+    mocker.patch("kubernetes.config.load_kube_config", return_value=None)
+
+    core_mock = mocker.patch("kubernetes.client.CoreV1Api").return_value
+    apps_mock = mocker.patch("kubernetes.client.AppsV1Api").return_value
+
+    # Default stubs to avoid per-test patching
+    # List all methods you want default-stubbed
+    core_methods = [
+        "read_namespace",
+        "create_namespace",
+        "create_namespaced_pod",
+        "delete_namespaced_pod",
+        "read_namespaced_pod",
+        "create_namespaced_service",
+        "delete_namespaced_service",
+        "read_namespaced_service",
+    ]
+    for m in core_methods:
+        setattr(core_mock, m, MagicMock())
+
+    apps_methods = [
+        "create_namespaced_deployment",
+        "delete_namespaced_deployment",
+        "read_namespaced_deployment",
+    ]
+    for m in apps_methods:
+        setattr(apps_mock, m, MagicMock())
+
+    return core_mock, apps_mock
+
+
+@pytest.fixture
+def k8s_hub_settings(mocker: MockerFixture) -> MagicMock:
+    """Fixture to provide a mocked settings object for KubernetesHubBackend."""
+    settings: MagicMock = mocker.MagicMock(spec=core_settings.Settings())
+    settings.DEPLOYMENT_MODE = "kubernetes"
+    settings.K8S_NAMESPACE = "test-namespace"
+    settings.K8S_MAX_RETRIES = 3
+    settings.K8S_RETRY_DELAY_SECONDS = 0
+    settings.MAX_BROWSER_INSTANCES = 8
+    settings.SE_NODE_MAX_SESSIONS = 5
+    settings.BROWSER_CONFIGS = {
+        "chrome": BrowserConfig(
+            image="selenium/node-chrome:latest",
+            resources=ContainerResources(memory="1G", cpu="1"),
+            port=4444,
+        )
+    }  # Mock browser configs with full structure
+    settings.SELENIUM_HUB_USER = "test-user"
+    settings.SELENIUM_HUB_PASSWORD = "test-password"  # noqa: S105
+    return settings
+
+
+@pytest.fixture
+def k8s_backend(
+    mock_k8s_apis: tuple[MagicMock, MagicMock],
+    k8s_hub_settings: Settings,
+    mocker: MockerFixture,
+) -> Generator[KubernetesHubBackend, None, None]:
+    """Fixture that yields a KubernetesHubBackend instance with mocked K8s clients."""
+
+    core, apps = mock_k8s_apis
+    backend = KubernetesHubBackend(k8s_hub_settings)
+
+    backend.k8s_core = core
+    backend.k8s_apps = apps
+
+    # Patch docker.from_env everywhere in k8s fixture too, to prevent accidental Docker usage
+    mocker.patch("docker.from_env", return_value=mock_docker_client)
+    mocker.patch(
+        "app.services.selenium_hub.docker_backend.docker.from_env", return_value=mock_docker_client
+    )
+
+    yield backend
 
 
 # ==============================================================================
@@ -122,24 +243,25 @@ def create_mock_network(
 
 
 @pytest.fixture(scope="session")
-def client() -> TestClient:
+def client() -> Generator[TestClient, None, None]:
     """Create a test client for the FastAPI app with dependency override for verify_token."""
     from app.dependencies import verify_token
+    from app.main import app
     from fastapi.testclient import TestClient
 
     async def always_valid_token(token: Optional[str] = None) -> Dict[str, str]:
         return {"sub": "test-agent"}
 
     app.dependency_overrides[verify_token] = always_valid_token
-    return TestClient(app)
+
+    with TestClient(app) as client:
+        yield client
 
 
 @pytest.fixture
 def auth_headers() -> Dict[str, str]:
     """Create authentication headers for API requests."""
-    from app.core.settings import settings
-
-    return {"Authorization": f"Bearer {settings.API_TOKEN}"}
+    return {"Authorization": f"Bearer {Settings().API_TOKEN}"}
 
 
 @pytest.fixture
@@ -159,3 +281,30 @@ def cleanup_docker_browsers() -> Generator[None, Any, None]:
                 container.remove(force=True)
         except Exception:
             logging.exception("Exception occurred while cleaning up container")
+
+
+@pytest.fixture
+def browser_configs() -> Dict[str, BrowserConfig]:
+    """Fixture to provide a sample browser configuration for tests."""
+    return {
+        "chrome": BrowserConfig(
+            image="selenium/node-chrome:latest",
+            resources=ContainerResources(memory="1G", cpu="1"),
+            port=4444,
+        )
+    }
+
+
+def reset_selenium_hub_singleton() -> None:
+    """Reset the SeleniumHub singleton instance."""
+    SeleniumHub._instance = None
+    SeleniumHub._initialized = False
+
+
+@pytest.fixture
+def selenium_hub() -> Generator[SeleniumHub, None, None]:
+    """Create a SeleniumHub instance with settings."""
+    reset_selenium_hub_singleton()  # Reset singleton before creating new instance
+    hub = SeleniumHub(core_settings.Settings())
+    yield hub
+    reset_selenium_hub_singleton()  # Reset singleton after test

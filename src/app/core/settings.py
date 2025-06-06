@@ -1,6 +1,8 @@
 """Core settings for MCP Server."""
 
-from typing import Any, Dict, List, Optional, Tuple, Type
+import json
+import os
+from typing import Any, Dict, List, Tuple, Type
 
 from pydantic import Field, field_validator
 from pydantic_settings import (
@@ -32,7 +34,7 @@ class Settings(BaseSettings):
 
     # Selenium Settings
     SELENIUM_HUB_PORT: int = Field(default=4444)
-    MAX_BROWSER_INSTANCES: Optional[int] = Field(default=None)
+    MAX_BROWSER_INSTANCES: int = Field(default=1)
     SE_NODE_MAX_SESSIONS: int = Field(default=1)
 
     # Deployment Settings
@@ -59,6 +61,7 @@ class Settings(BaseSettings):
         yaml_file_encoding="utf-8",
         alias_generator=lambda name: name.lower(),
         case_sensitive=True,
+        nested_model_default_partial_update=True,
         extra="ignore",
     )
 
@@ -99,20 +102,40 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[
+        PydanticBaseSettingsSource,
+        PydanticBaseSettingsSource,
+        PydanticBaseSettingsSource,
+        PydanticBaseSettingsSource,
         YamlConfigSettingsSource,
-        PydanticBaseSettingsSource,
-        PydanticBaseSettingsSource,
-        PydanticBaseSettingsSource,
-        PydanticBaseSettingsSource,
     ]:
-        # Load config.yaml first, then the default sources
+        # Make init_settings and env_settings higher priority than YAML
         return (
-            YamlConfigSettingsSource(settings_cls),
             init_settings,
             env_settings,
             dotenv_settings,
             file_secret_settings,
+            YamlConfigSettingsSource(settings_cls),
         )
 
+    @classmethod
+    def _update_env(cls, instance: "Settings") -> "Settings":
+        """
+        Update environment variables for any fields in this Settings instance.
+        Serializes complex types as JSON strings.
+        Returns self for method chaining or inline use.
+        """
+        for field_name, field_value in instance.model_dump().items():
+            if isinstance(field_value, (str, int, float, bool)) or field_value is None:
+                os.environ[field_name.upper()] = str(field_value)
+            else:
+                # Serialize complex types as JSON
+                os.environ[field_name.upper()] = json.dumps(field_value)
+        return instance
 
-settings = Settings()
+    def model_copy(self, **kwargs: Any) -> "Settings":
+        """
+        Override model_copy to update environment variables after copying.
+        """
+        copied = super().model_copy(**kwargs)
+        self._update_env(copied)
+        return copied

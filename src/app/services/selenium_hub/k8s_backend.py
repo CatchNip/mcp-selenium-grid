@@ -34,9 +34,6 @@ from .backend import HubBackend
 
 K8S_NOT_FOUND = 404
 K8S_CONFLICT = 409
-# Define a short delay and a maximum number of retries for API calls
-RETRY_DELAY_SECONDS = 2
-MAX_RETRIES = 5
 
 
 class KubernetesHubBackend(HubBackend):
@@ -60,6 +57,15 @@ class KubernetesHubBackend(HubBackend):
         self.k8s_core = CoreV1Api()
         self.k8s_apps = AppsV1Api()
         self.ns = settings.K8S_NAMESPACE
+
+    async def _RETRY(self, attempt: int) -> None:
+        """
+        Wait for a specified delay before retrying an operation.
+        This is used to handle transient errors in Kubernetes operations.
+        """
+        delay = self.settings.K8S_RETRY_DELAY_SECONDS * (2**attempt)  # Exponential backoff
+        logging.info(f"Retrying in {delay} seconds...", stacklevel=2)
+        await asyncio.sleep(delay)
 
     def _wait_for_resource_deletion(self, resource_type: str, name: str) -> None:
         """Waits for a specific resource to be deleted."""
@@ -145,10 +151,17 @@ class KubernetesHubBackend(HubBackend):
             if e.status == K8S_NOT_FOUND:
                 logging.info(f"Namespace {self.ns} not found, creating...")
                 ns = V1Namespace(metadata=V1ObjectMeta(name=self.ns))
-                self.k8s_core.create_namespace(ns)
-                logging.info(f"Namespace {self.ns} created.")
+                try:
+                    self.k8s_core.create_namespace(ns)
+                    logging.info(f"Namespace {self.ns} created.")
+                except ApiException as ce:
+                    logging.error(f"Failed to create namespace {self.ns}: {ce}")
+                    raise
             else:
                 logging.error(f"Error reading namespace {self.ns}: {e}")
+                logging.error(
+                    f"Full ApiException: status={e.status}, reason={getattr(e, 'reason', None)}, body={getattr(e, 'body', None)}"
+                )
                 raise  # Re-raise other API errors after logging
         except Exception as e:
             logging.exception(f"Unexpected error ensuring namespace {self.ns}: {e}")
@@ -204,9 +217,7 @@ class KubernetesHubBackend(HubBackend):
             except Exception as e:
                 logging.exception(f"Attempt {i + 1} to ensure K8s hub failed: {e}")
                 if i < self.settings.K8S_MAX_RETRIES - 1:
-                    await asyncio.sleep(
-                        self.settings.K8S_RETRY_DELAY_SECONDS * (2**i)
-                    )  # Exponential backoff
+                    await self._RETRY(i)
                 else:
                     logging.exception("Max retries reached for ensuring K8s hub.")
                     return False  # Failed after retries
@@ -224,10 +235,8 @@ class KubernetesHubBackend(HubBackend):
         config: BrowserConfig = browser_configs[browser_type]
 
         for _ in range(count):
-            pod_name = None  # Initialize pod_name outside retry loop
             for i in range(self.settings.K8S_MAX_RETRIES):
                 try:
-                    # Pod name using UUID for better uniqueness
                     pod_name = f"selenium-node-{browser_type}-{uuid.uuid4().hex[:8]}"
                     pod = V1Pod(
                         metadata=V1ObjectMeta(
@@ -258,7 +267,6 @@ class KubernetesHubBackend(HubBackend):
                                             "memory": config.resources.memory,
                                         },
                                     ),
-                                    # Add readiness and liveness probes if needed
                                 )
                             ]
                         ),
@@ -269,29 +277,25 @@ class KubernetesHubBackend(HubBackend):
                     break  # Exit retry loop on success
                 except ApiException as e:
                     logging.error(f"Attempt {i + 1} to create browser pod failed: {e}")
-                    if e.status == K8S_CONFLICT:  # Conflict, likely due to UUID collision (rare)
+                    if e.status == K8S_CONFLICT:
                         logging.warning("Pod name conflict, retrying with a new name.")
-                        continue  # Retry with a new UUID
+                        continue
                     if i < self.settings.K8S_MAX_RETRIES - 1:
-                        await asyncio.sleep(
-                            self.settings.K8S_RETRY_DELAY_SECONDS * (2**i)
-                        )  # Exponential backoff
+                        await self._RETRY(i)
                     else:
                         logging.exception("Max retries reached for creating browser pod.")
-                        # Do not append pod_name if creation failed after retries
-                except Exception as e:  # Catch other unexpected errors during pod creation
+                except Exception as e:
                     logging.exception(f"Unexpected error creating browser pod: {e}")
                     if i < self.settings.K8S_MAX_RETRIES - 1:
-                        await asyncio.sleep(
-                            self.settings.K8S_RETRY_DELAY_SECONDS * (2**i)
-                        )  # Exponential backoff
+                        await self._RETRY(i)
                     else:
                         logging.exception(
                             "Max retries reached for creating browser pod due to unexpected error."
                         )
-                        # Do not append pod_name if creation failed after retries
-
-        # Note: Consider adding a check here to see if enough browsers were created
+            else:
+                # This else executes if the inner loop did NOT break (i.e., all retries failed)
+                logging.error("Failed to create browser pod after all retries.")
+        # Only return browser_ids for successfully created pods
         return browser_ids
 
     def _create_hub_deployment(self) -> V1Deployment:
@@ -391,28 +395,12 @@ class KubernetesHubBackend(HubBackend):
             logging.exception(f"Unexpected error getting status for pod {browser_id}: {e}")
             return {"status": "error", "id": browser_id, "message": f"Unexpected error: {e}"}
 
-    async def delete_browser(self, browser_id: str) -> Dict[str, Any]:
-        """
-        Delete a specific browser pod by its ID (pod name).
-        Returns a dictionary indicating success or failure.
-        """
-        pod_name = browser_id
+    async def delete_browser(self, browser_id: str) -> bool:
+        """Delete a specific browser pod by its ID (pod name). Returns True if deleted, False otherwise."""
         try:
-            # Delete the pod
             self.k8s_core.delete_namespaced_pod(
-                name=pod_name, namespace=self.ns, body=V1DeleteOptions()
+                name=browser_id, namespace=self.ns, body=V1DeleteOptions()
             )
-            logging.info(f"Browser pod {browser_id} delete request sent.")
-            # Optionally wait for deletion, but for a simple delete endpoint, just sending the request is often sufficient
-            # self._wait_for_resource_deletion("pod", pod_name)
-            return {"success": True, "id": browser_id, "message": "Pod delete request sent"}
-        except ApiException as e:
-            if e.status == K8S_NOT_FOUND:
-                logging.info(f"Browser pod {browser_id} not found for deletion.")
-                return {"success": False, "id": browser_id, "message": "Pod not found for deletion"}
-            else:
-                logging.error(f"Error deleting pod {browser_id}: {e}")
-                return {"success": False, "id": browser_id, "message": f"Kubernetes API error: {e}"}
-        except Exception as e:
-            logging.exception(f"Unexpected error deleting pod {browser_id}: {e}")
-            return {"success": False, "id": browser_id, "message": f"Unexpected error: {e}"}
+            return True
+        except Exception:
+            return False

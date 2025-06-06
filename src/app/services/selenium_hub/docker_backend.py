@@ -184,20 +184,11 @@ class DockerHubBackend(HubBackend):
             logging.exception(f"Unexpected error getting status for {browser_id}: {e}")
             return {"status": "error", "message": str(e)}
 
-    async def delete_browser(self, browser_id: str) -> Dict[str, Any]:
-        """Delete a specific browser instance by container ID (Docker)."""
+    async def delete_browser(self, browser_id: str) -> bool:
+        """Delete a specific browser instance by container ID (Docker). Returns True if deleted, False otherwise."""
         try:
-            logging.info(f"Attempting to remove browser container with ID {browser_id}.")
             container = self.client.containers.get(browser_id)
             container.remove(force=True)
-            logging.info(f"Removed browser container with ID {browser_id}.")
-            return {"success": True, "id": browser_id, "message": "Container removed"}
-        except NotFound:
-            logging.info(f"Browser container with ID {browser_id} not found for deletion.")
-            return {"success": False, "id": browser_id, "message": "Container not found"}
-        except APIError as e:
-            logging.error(f"Docker API error removing container {browser_id}: {e}")
-            return {"success": False, "id": browser_id, "message": f"Docker API error: {e}"}
-        except Exception as e:
-            logging.exception(f"Unexpected error removing container {browser_id}: {e}")
-            return {"success": False, "id": browser_id, "message": f"Unexpected error: {e}"}
+            return True
+        except Exception:
+            return False

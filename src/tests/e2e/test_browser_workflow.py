@@ -4,11 +4,10 @@ import time
 from typing import Dict
 
 import pytest
+from app.services.selenium_hub import SeleniumHub
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx import Response
-
-# from testcontainers.selenium import SeleniumContainer
 
 EXPECTED_BROWSER_COUNT = 2
 
@@ -25,7 +24,9 @@ def create_browser(
 
 
 @pytest.mark.e2e
-def test_complete_browser_lifecycle(client: TestClient, auth_headers: Dict[str, str]) -> None:
+def test_complete_browser_lifecycle(
+    client: TestClient, auth_headers: Dict[str, str], selenium_hub: SeleniumHub
+) -> None:
     # 1. Create a browser instance
     create_response = create_browser(client, auth_headers)
     assert create_response.status_code == status.HTTP_201_CREATED
@@ -59,7 +60,9 @@ def test_complete_browser_lifecycle(client: TestClient, auth_headers: Dict[str, 
         assert delete_response.json()["success"] is True
 
 
-def test_hub_operation(client: TestClient, auth_headers: Dict[str, str]) -> None:
+def test_hub_operation(
+    client: TestClient, auth_headers: Dict[str, str], selenium_hub: SeleniumHub
+) -> None:
     response = client.get("/api/v1/browsers/status", headers=auth_headers)
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
@@ -69,7 +72,7 @@ def test_hub_operation(client: TestClient, auth_headers: Dict[str, str]) -> None
 @pytest.mark.e2e
 @pytest.mark.parametrize("browser_type", ["invalid", "firefox"])
 def test_error_handling(
-    client: TestClient, auth_headers: Dict[str, str], browser_type: str
+    client: TestClient, auth_headers: Dict[str, str], browser_type: str, selenium_hub: SeleniumHub
 ) -> None:
     """Test API error handling for browser creation."""
     response = create_browser(client, auth_headers, browser_type=browser_type)

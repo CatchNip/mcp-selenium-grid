@@ -58,7 +58,7 @@ You can run tests using pytest:
 Format code:
 
 ```bash
-uv run black .
+uv run ruff format .
 ```
 
 Lint code:
