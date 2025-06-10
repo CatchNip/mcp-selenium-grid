@@ -103,9 +103,11 @@ class DockerHubBackend(HubBackend):
                     "SE_EVENT_BUS_HOST": self.HUB_NAME,
                     "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                     "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
-                    "SE_NODE_MAX_SESSIONS": str(self.settings.MAX_BROWSER_INSTANCES or 10),
+                    "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS),
                     "SE_NODE_OVERRIDE_MAX_SESSIONS": "true",
-                    "SE_VNC_NO_PASSWORD": "true",
+                    "SE_VNC_NO_PASSWORD": str(self.settings.SE_VNC_NO_PASSWORD),
+                    "SE_VNC_PASSWORD": str(self.settings.SELENIUM_HUB_VNC_PASSWORD),
+                    "SE_VNC_VIEW_ONLY": str(self.settings.SELENIUM_HUB_VNC_VIEW_ONLY),
                     "SE_OPTS": f"--username {self.settings.SELENIUM_HUB_USER} \
                         --password {self.settings.SELENIUM_HUB_PASSWORD}",
                 },

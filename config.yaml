@@ -4,6 +4,9 @@ selenium_hub_port: 4444
 selenium_node_max_sessions: 1
 selenium_hub_user: user
 selenium_hub_password: CHANGE_ME
+selenium_hub_vnc_password: CHANGE_ME
+selenium_hub_vnc_view_only: false
+selenium_hub_vnc_port: 7900
 max_browser_instances: 5
 deployment_mode: docker # one of: docker, kubernetes (DeploymentMode enum values)
 k8s_namespace: selenium-grid-dev

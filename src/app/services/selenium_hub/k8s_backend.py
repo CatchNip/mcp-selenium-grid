@@ -314,6 +314,9 @@ class KubernetesHubBackend(HubBackend):
                 V1EnvVar(name="SE_EVENT_BUS_SUBSCRIBE_PORT", value="4443"),
                 V1EnvVar(name="SE_HUB_USER", value=self.settings.selenium_hub_user),
                 V1EnvVar(name="SE_HUB_PASSWORD", value=self.settings.selenium_hub_password),
+                V1EnvVar(name="SE_VNC_NO_PASSWORD", value=self.settings.SE_VNC_NO_PASSWORD_STR),
+                V1EnvVar(name="SE_VNC_PASSWORD", value=self.settings.SELENIUM_HUB_VNC_PASSWORD),
+                V1EnvVar(name="SE_VNC_VIEW_ONLY", value=self.settings.SE_VNC_VIEW_ONLY_STR),
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "128Mi"},
