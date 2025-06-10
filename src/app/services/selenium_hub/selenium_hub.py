@@ -1,6 +1,10 @@
 """Selenium Hub service for managing browser instances."""
 
+import asyncio
 from typing import Optional
+from urllib.parse import urljoin
+
+import httpx
 
 from app.core.settings import Settings
 from app.services.metrics import track_browser_metrics, track_hub_metrics
@@ -21,7 +25,7 @@ class SeleniumHub:
 
     Attributes:
         settings (Settings): Application settings used to configure the hub and browsers
-        manager (SeleniumHubManager): Manager instance that handles the actual hub operations
+        _manager (SeleniumHubManager): Manager instance that handles the actual hub operations
         browser_configs (Dict[str, BrowserConfig]): Configuration for supported browser types
 
     Class Variables:
@@ -75,28 +79,63 @@ class SeleniumHub:
             if settings is None:
                 raise ValueError("Settings must be provided for first initialization")
             self.settings: Settings = settings
-            self.manager: SeleniumHubManager = SeleniumHubManager(self.settings)
+            self._manager: SeleniumHubManager = SeleniumHubManager(self.settings)
             self._initialized = True
         elif settings is not None:
             # Update settings
             self.settings = settings
 
             # Reinitialize manager with updated settings
-            self.manager = SeleniumHubManager(self.settings)
+            self._manager = SeleniumHubManager(self.settings)
 
     @track_hub_metrics()
-    async def ensure_hub_running(self, retries: int = 2, wait_seconds: float = 0.0) -> bool:
+    async def check_hub_health(self) -> bool:
         """
-        Ensure the hub is running, delegating retry/wait logic to the manager.
-
-        Args:
-            retries (int): Number of retry attempts if hub is not running
-            wait_seconds (float): Time to wait between retries
+        Check if the Selenium Hub is healthy and reachable by polling the status endpoint.
 
         Returns:
-            bool: True if hub is running, False otherwise
+            bool: True if the hub responds with 200 OK, False otherwise.
         """
-        return await self.manager.ensure_hub_running(retries=retries, wait_seconds=wait_seconds)
+        url = urljoin(self.settings.SELENIUM_HUB_BASE_URL_DYNAMIC, "status")
+        auth = httpx.BasicAuth(self.settings.SELENIUM_HUB_USER, self.settings.SELENIUM_HUB_PASSWORD)
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(2.0), auth=auth) as client:
+                response = await client.get(url)
+                return response.status_code == httpx.codes.OK
+        except httpx.RequestError:
+            return False
+
+    @track_hub_metrics()
+    async def ensure_hub_running(self) -> bool:
+        """
+        Ensure the hub container/service is running.
+        This only checks if the container/service exists and is running.
+
+        Returns:
+            bool: True if the hub container/service is running, False otherwise.
+        """
+        return await self._manager.ensure_hub_running()
+
+    @track_hub_metrics()
+    async def wait_for_hub_healthy(self, check_interval: float = 1.0) -> bool:
+        """
+        Wait for the hub to be healthy and reachable.
+        Uses asyncio.timeout() to limit the total wait time.
+
+        Args:
+            check_interval (float): Time between health checks in seconds.
+
+        Returns:
+            bool: True if the hub becomes healthy within the timeout, False otherwise.
+        """
+        try:
+            async with asyncio.timeout(30):  # 30 second default timeout
+                while True:
+                    if await self.check_hub_health():
+                        return True
+                    await asyncio.sleep(check_interval)
+        except asyncio.TimeoutError:
+            return False
 
     @track_browser_metrics()
     async def create_browsers(self, count: int, browser_type: str) -> list[str]:
@@ -122,7 +161,7 @@ class SeleniumHub:
             raise ValueError(
                 f"Maximum browser instances exceeded: {count} > {self.settings.MAX_BROWSER_INSTANCES}"
             )
-        return await self.manager.create_browsers(
+        return await self._manager.create_browsers(
             count, browser_type, self.settings.BROWSER_CONFIGS
         )
 
@@ -139,4 +178,4 @@ class SeleniumHub:
         """
         if not browser_ids:
             return []
-        return await self.manager.delete_browsers(browser_ids)
+        return await self._manager.delete_browsers(browser_ids)

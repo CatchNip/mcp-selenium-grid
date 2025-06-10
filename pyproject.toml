@@ -98,7 +98,6 @@ addopts = """
     --cov=app
     --cov-report=term-missing
     --cov-report=html
-    --asyncio-mode=auto
     --strict-markers
     --cache-clear
 """
@@ -108,14 +107,9 @@ markers = [
     "unit: marks tests as unit tests",
 ]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "function"
 log_cli = true
 log_cli_level = "INFO"
-
-# Use pytest-env plugin to define environment variables
-env = [
-    
-]
 
 [tool.coverage.run]
 source = ["app"]

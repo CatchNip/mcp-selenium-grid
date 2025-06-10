@@ -14,7 +14,7 @@ from pydantic_settings import (
 from typing_extensions import override
 
 from app.core.env_helpers import getenv_as_bool
-from app.core.models import BrowserConfig, ContainerResources
+from app.core.models import BrowserConfig, ContainerResources, DeploymentMode
 
 
 class Settings(BaseSettings):
@@ -38,8 +38,10 @@ class Settings(BaseSettings):
     SE_NODE_MAX_SESSIONS: int = Field(default=1)
 
     # Deployment Settings
-    DEPLOYMENT_MODE: str = Field(
-        default="kubernetes" if getenv_as_bool("IS_RUNNING_IN_DOCKER") else "docker"
+    DEPLOYMENT_MODE: DeploymentMode = Field(
+        default=DeploymentMode.KUBERNETES
+        if getenv_as_bool("IS_RUNNING_IN_DOCKER")
+        else DeploymentMode.DOCKER
     )
 
     # Kubernetes Settings
@@ -84,9 +86,9 @@ class Settings(BaseSettings):
         - For 'docker': use 'http://localhost:4444'
         - For 'kubernetes': use 'http://selenium-hub.{namespace}.svc.cluster.local:4444'
         """
-        if self.DEPLOYMENT_MODE == "docker":
+        if self.DEPLOYMENT_MODE == DeploymentMode.DOCKER:
             return f"http://localhost:{self.SELENIUM_HUB_PORT}"
-        elif self.DEPLOYMENT_MODE == "kubernetes":
+        elif self.DEPLOYMENT_MODE == DeploymentMode.KUBERNETES:
             return f"http://selenium-hub.{self.K8S_NAMESPACE}.svc.cluster.local:{self.SELENIUM_HUB_PORT}"
         else:
             # fallback to localhost for unknown modes

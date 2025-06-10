@@ -1,41 +1,40 @@
 """Browser management endpoints for MCP Server."""
 
-from typing import Any, List
+from typing import Annotated, Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.core.models import BrowserInstance
 from app.core.settings import Settings
-from app.dependencies import verify_token
+from app.dependencies import get_settings, verify_token
+from app.routers.browsers.models import BrowserRequest, BrowserResponse
 from app.services.selenium_hub import SeleniumHub
 
+
+class BrowserStatusResponse(BaseModel):
+    """Browser status response model."""
+
+    status: str
+    details: Dict[str, Any]
+
+
+class BrowserHealthResponse(BaseModel):
+    """Browser health response model."""
+
+    cpu_usage: float
+    memory_usage: float
+
+
+class BrowserDeleteResponse(BaseModel):
+    """Browser delete response model."""
+
+    success: bool
+    message: str
+
+
 router = APIRouter(prefix="/browsers", tags=["Browsers"])
-
-
-class BrowserRequest(BaseModel):
-    """Browser request model."""
-
-    count: int = Field(default=1, gt=0, description="Number of browser instances to create")
-    browser_type: str = Field(
-        default="chrome", pattern="^(chrome|firefox|edge)$", description="Type of browser to create"
-    )
-
-
-class BrowserResponse(BaseModel):
-    """Browser response model."""
-
-    browsers: List[BrowserInstance]
-    hub_url: str
-    status: str = "created"
-
-
-class HubStatusResponse(BaseModel):
-    hub_running: bool
-    deployment_mode: str
-    max_instances: int
-    browsers: list[dict[str, Any]]  # serialized BrowserInstance
 
 
 @router.post(
@@ -46,7 +45,7 @@ class HubStatusResponse(BaseModel):
 async def create_browsers(
     fastapi_request: Request,
     request: BrowserRequest,
-    settings: Settings,
+    settings: Annotated[Settings, Depends(get_settings)],
     credentials: HTTPAuthorizationCredentials = Depends(verify_token),
 ) -> BrowserResponse:
     """Create browser instances in Selenium Grid."""
@@ -90,32 +89,28 @@ async def create_browsers(
     return BrowserResponse(browsers=browsers, hub_url=settings.SELENIUM_HUB_BASE_URL_DYNAMIC)
 
 
-@router.get(
-    "/status",
-    response_model=HubStatusResponse,
+@router.delete(
+    "/{browser_id}",
+    response_model=BrowserDeleteResponse,
 )
-async def get_hub_status(
+async def delete_browser(
+    browser_id: str,
     fastapi_request: Request,
-    settings: Settings,
+    settings: Annotated[Settings, Depends(get_settings)],
     credentials: HTTPAuthorizationCredentials = Depends(verify_token),
-) -> HubStatusResponse:
-    """Get Selenium Grid status."""
-    hub = SeleniumHub()  # This will return the singleton instance
-    is_running = await hub.ensure_hub_running(
-        retries=settings.K8S_MAX_RETRIES if settings.DEPLOYMENT_MODE == "kubernetes" else 2,
-        wait_seconds=(
-            settings.K8S_RETRY_DELAY_SECONDS if settings.DEPLOYMENT_MODE == "kubernetes" else 0.0
-        ),
-    )
+) -> BrowserDeleteResponse:
+    """Delete a specific browser instance."""
+    hub = SeleniumHub()
+    deleted_ids = await hub.delete_browsers([browser_id])
+    success = browser_id in deleted_ids
 
-    # Get app_state.browsers_instances using lock to ensure thread safety
-    app_state = fastapi_request.app.state
-    async with app_state.browsers_instances_lock:
-        browsers = [browser.model_dump() for browser in app_state.browsers_instances.values()]
+    # Remove from app state if deletion was successful
+    if success:
+        app_state = fastapi_request.app.state
+        async with app_state.browsers_instances_lock:
+            app_state.browsers_instances.pop(browser_id, None)
 
-    return HubStatusResponse(
-        hub_running=is_running,
-        deployment_mode=settings.DEPLOYMENT_MODE,
-        max_instances=settings.MAX_BROWSER_INSTANCES,
-        browsers=browsers,
+    return BrowserDeleteResponse(
+        success=success,
+        message="Browser deleted successfully" if success else "Failed to delete browser",
     )

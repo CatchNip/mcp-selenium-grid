@@ -2,6 +2,7 @@
 
 import base64
 import logging
+from typing import Annotated
 from urllib.parse import urljoin
 
 import httpx
@@ -10,13 +11,10 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBasicCredentials
 
 from app.core.settings import Settings
-from app.dependencies import verify_basic_auth
-
-router = APIRouter(prefix="/selenium-hub", tags=["Selenium Hub"])
-logger = logging.getLogger(__name__)
-
+from app.dependencies import get_settings, verify_basic_auth
 
 # Constants
+SELENIUM_HUB_PREFIX = "/selenium-hub"
 REDIRECT_STATUS_CODES = {
     status.HTTP_301_MOVED_PERMANENTLY,
     status.HTTP_302_FOUND,
@@ -34,6 +32,9 @@ FORWARDED_HEADERS = {
     "connection",
     "cache-control",
 }
+
+router = APIRouter(prefix=SELENIUM_HUB_PREFIX, tags=["Selenium Hub"])
+logger = logging.getLogger(__name__)
 
 
 # --- Utility Functions ---
@@ -145,10 +146,18 @@ async def proxy_selenium_request(
 @router.get("/", include_in_schema=False)
 async def selenium_hub_root_proxy(
     request: Request,
-    settings: Settings,
+    settings: Annotated[Settings, Depends(get_settings)],
     basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
 ) -> Response:
-    """Proxy Selenium Hub root (requires Basic Auth)."""
+    """
+    Proxy Selenium Hub root (requires Basic Auth).
+    Redirects {SELENIUM_HUB_PREFIX}/ to {SELENIUM_HUB_PREFIX}/ui.
+    """
+    # If the path is exactly {SELENIUM_HUB_PREFIX}/, redirect to {SELENIUM_HUB_PREFIX}/ui
+    if request.url.path.rstrip("/") == SELENIUM_HUB_PREFIX:
+        return RedirectResponse(url=f"{SELENIUM_HUB_PREFIX}/ui")
+
+    # Otherwise, proxy the request
     selenium_url = _get_selenium_hub_url(settings)
     return await proxy_selenium_request(request, selenium_url, basic_auth, follow_redirects=True)
 
@@ -161,7 +170,7 @@ async def selenium_hub_root_proxy(
 async def selenium_hub_path_proxy(
     request: Request,
     path: str,
-    settings: Settings,
+    settings: Annotated[Settings, Depends(get_settings)],
     basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
 ) -> Response:
     """Proxy all Selenium Hub subpaths (requires Basic Auth)."""
@@ -175,8 +184,8 @@ async def selenium_hub_path_proxy(
     response_class=RedirectResponse,
 )
 async def selenium_hub_ui_redirect() -> RedirectResponse:
-    """Redirect /selenium-hub/ui to /selenium-hub/ui/ for SPA asset resolution."""
-    return RedirectResponse(url="/selenium-hub/ui/")
+    """Redirect {SELENIUM_HUB_PREFIX}/ui to {SELENIUM_HUB_PREFIX}/ui/ for SPA asset resolution."""
+    return RedirectResponse(url=f"{SELENIUM_HUB_PREFIX}/ui/")
 
 
 @router.api_route(
@@ -184,13 +193,9 @@ async def selenium_hub_ui_redirect() -> RedirectResponse:
     methods=["GET", "POST", "DELETE"],
     response_class=Response,
 )
-@router.get(
-    "/ui",
-    response_class=Response,
-)
 async def selenium_hub_ui_proxy(
     request: Request,
-    settings: Settings,
+    settings: Annotated[Settings, Depends(get_settings)],
     basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
     path: str = "",
 ) -> Response:

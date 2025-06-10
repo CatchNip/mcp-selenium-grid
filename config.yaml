@@ -5,7 +5,7 @@ selenium_node_max_sessions: 1
 selenium_hub_user: user
 selenium_hub_password: CHANGE_ME
 max_browser_instances: 5
-deployment_mode: docker # or kubernetes
+deployment_mode: docker # one of: docker, kubernetes (DeploymentMode enum values)
 k8s_namespace: selenium-grid-dev
 allowed_origins:
   - http://localhost:8000

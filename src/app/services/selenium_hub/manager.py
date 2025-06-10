@@ -1,6 +1,8 @@
 import asyncio
 from typing import Any, ClassVar, Dict, List, Type
 
+from app.core.models import DeploymentMode
+
 from .backend import HubBackend
 from .docker_backend import DockerHubBackend
 from .k8s_backend import KubernetesHubBackend
@@ -9,16 +11,16 @@ from .k8s_backend import KubernetesHubBackend
 class SeleniumHubManager:
     """Selects and delegates to the correct backend for cleanup and manages retries."""
 
-    _BACKEND_MAP: ClassVar[Dict[str, Type[HubBackend]]] = {
-        "docker": DockerHubBackend,
-        "kubernetes": KubernetesHubBackend,
+    _BACKEND_MAP: ClassVar[Dict[DeploymentMode, Type[HubBackend]]] = {
+        DeploymentMode.DOCKER: DockerHubBackend,
+        DeploymentMode.KUBERNETES: KubernetesHubBackend,
     }
 
     def __init__(self, settings: Any) -> None:
         try:
             backend_cls: Type[HubBackend] = self._BACKEND_MAP[settings.DEPLOYMENT_MODE]
         except KeyError:
-            valid = ", ".join(self._BACKEND_MAP.keys())
+            valid = ", ".join(mode.value for mode in self._BACKEND_MAP.keys())
             raise ValueError(
                 f"Unknown backend mode: {settings.DEPLOYMENT_MODE!r}. Valid modes are: {valid}."
             )

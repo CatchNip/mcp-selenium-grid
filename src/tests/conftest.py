@@ -1,19 +1,21 @@
 """Pytest configuration file."""
 
-import logging
 from typing import Any, Dict, Generator, Optional, Tuple
 from unittest.mock import MagicMock
 
 import app.core.settings as core_settings
-import docker
 import pytest
-from app.core.models import BrowserConfig, ContainerResources
+from app.core.models import BrowserConfig, ContainerResources, DeploymentMode
 from app.core.settings import Settings
+from app.dependencies import get_settings
 from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.docker_backend import DockerHubBackend
 from app.services.selenium_hub.k8s_backend import KubernetesHubBackend
 from docker.errors import NotFound  # Add NotFound for mocking
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.testclient import TestClient
+from httpx import BasicAuth
 from pytest_mock import MockerFixture
 
 
@@ -111,7 +113,7 @@ def docker_not_found() -> type:
 def docker_hub_settings(mocker: MockerFixture) -> MagicMock:
     """Fixture to provide a mocked settings object for DockerHubBackend."""
     settings: MagicMock = mocker.MagicMock(spec=core_settings.Settings())
-    settings.DEPLOYMENT_MODE = "docker"
+    settings.DEPLOYMENT_MODE = DeploymentMode.DOCKER
     settings.DOCKER_NETWORK = "test-network"
     settings.DOCKER_HUB_IMAGE = "selenium/hub:latest"
     settings.DOCKER_NODE_IMAGE = "selenium/node-chrome:latest"
@@ -186,7 +188,7 @@ def mock_k8s_apis(mocker: MockerFixture) -> Tuple[MagicMock, MagicMock]:
 def k8s_hub_settings(mocker: MockerFixture) -> MagicMock:
     """Fixture to provide a mocked settings object for KubernetesHubBackend."""
     settings: MagicMock = mocker.MagicMock(spec=core_settings.Settings())
-    settings.DEPLOYMENT_MODE = "kubernetes"
+    settings.DEPLOYMENT_MODE = DeploymentMode.KUBERNETES
     settings.K8S_NAMESPACE = "test-namespace"
     settings.K8S_MAX_RETRIES = 3
     settings.K8S_RETRY_DELAY_SECONDS = 0
@@ -232,6 +234,13 @@ def k8s_backend(
 # ==============================================================================
 
 
+@pytest.fixture
+def selenium_hub_basic_auth_headers() -> BasicAuth:
+    """Fixture to provide HTTP Basic Auth for Selenium Hub."""
+    settings = get_settings()
+    return BasicAuth(settings.SELENIUM_HUB_USER, settings.SELENIUM_HUB_PASSWORD)
+
+
 # ==============================================================================
 # E2E TEST FIXTURES
 # ==============================================================================
@@ -246,53 +255,28 @@ def k8s_backend(
 def client() -> Generator[TestClient, None, None]:
     """Create a test client for the FastAPI app with dependency override for verify_token."""
     from app.dependencies import verify_token
-    from app.main import app
+    from app.main import create_application
     from fastapi.testclient import TestClient
 
-    async def always_valid_token(token: Optional[str] = None) -> Dict[str, str]:
-        return {"sub": "test-agent"}
+    # HTTP Bearer token setup
+    security = HTTPBearer()
 
-    app.dependency_overrides[verify_token] = always_valid_token
+    app = create_application()
 
-    with TestClient(app) as client:
-        yield client
+    async def verify_token_override(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+    ) -> Dict[str, str]:
+        if not credentials or not credentials.credentials:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or missing token",
+            )
+        return {"sub": "api-user"}
 
-
-@pytest.fixture
-def auth_headers() -> Dict[str, str]:
-    """Create authentication headers for API requests."""
-    return {"Authorization": f"Bearer {Settings().API_TOKEN}"}
-
-
-@pytest.fixture
-def cleanup_docker_browsers() -> Generator[None, Any, None]:
-    """Cleanup Docker containers created by browser tests after each test."""
-    client = docker.from_env()
-    before = {c.id for c in client.containers.list(all=True)}
-    yield
-    after = {c.id for c in client.containers.list(all=True)}
-    new = after - before
-    for cid in new:
-        try:
-            container = client.containers.get(cid)
-            image = getattr(container.image, "tags", [])
-            # Remove if container image is a Selenium browser node
-            if any(tag.startswith("selenium/node-") for tag in image):
-                container.remove(force=True)
-        except Exception:
-            logging.exception("Exception occurred while cleaning up container")
-
-
-@pytest.fixture
-def browser_configs() -> Dict[str, BrowserConfig]:
-    """Fixture to provide a sample browser configuration for tests."""
-    return {
-        "chrome": BrowserConfig(
-            image="selenium/node-chrome:latest",
-            resources=ContainerResources(memory="1G", cpu="1"),
-            port=4444,
-        )
-    }
+    app.dependency_overrides[verify_token] = verify_token_override
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides = {}
 
 
 def reset_selenium_hub_singleton() -> None:
@@ -302,9 +286,6 @@ def reset_selenium_hub_singleton() -> None:
 
 
 @pytest.fixture
-def selenium_hub() -> Generator[SeleniumHub, None, None]:
-    """Create a SeleniumHub instance with settings."""
-    reset_selenium_hub_singleton()  # Reset singleton before creating new instance
-    hub = SeleniumHub(core_settings.Settings())
-    yield hub
-    reset_selenium_hub_singleton()  # Reset singleton after test
+def auth_headers() -> Dict[str, str]:
+    """Create authentication headers for API requests."""
+    return {"Authorization": f"Bearer {get_settings().API_TOKEN}"}

@@ -361,40 +361,6 @@ class KubernetesHubBackend(HubBackend):
 
         return service
 
-    async def get_browser_status(self, browser_id: str) -> Dict[str, Any]:
-        """
-        Get the status of a specific browser pod by its ID.
-        Returns a dictionary with status information.
-        """
-        # In Kubernetes backend, browser_id is the pod name.
-        pod_name = browser_id
-        try:
-            # Read the pod status
-            pod = self.k8s_core.read_namespaced_pod(name=pod_name, namespace=self.ns)
-            # Extract relevant status information. This is a basic example;
-            # you might want to check pod conditions, container statuses, etc.
-            # For simplicity, we'll just check the phase.
-            status = pod.status.phase if pod.status and pod.status.phase else "unknown"
-            if status == "Running":
-                return {"status": "ready", "id": browser_id, "message": "Pod is running"}
-            else:
-                return {"status": status, "id": browser_id, "message": f"Pod status: {status}"}
-
-        except ApiException as e:
-            if e.status == K8S_NOT_FOUND:
-                logging.info(f"Browser pod {browser_id} not found.")
-                return {"status": "not found", "id": browser_id, "message": "Pod not found"}
-            else:
-                logging.error(f"Error getting status for pod {browser_id}: {e}")
-                return {
-                    "status": "error",
-                    "id": browser_id,
-                    "message": f"Kubernetes API error: {e}",
-                }
-        except Exception as e:
-            logging.exception(f"Unexpected error getting status for pod {browser_id}: {e}")
-            return {"status": "error", "id": browser_id, "message": f"Unexpected error: {e}"}
-
     async def delete_browser(self, browser_id: str) -> bool:
         """Delete a specific browser pod by its ID (pod name). Returns True if deleted, False otherwise."""
         try:

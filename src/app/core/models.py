@@ -1,7 +1,16 @@
 """Core data models for MCP Server."""
 
+from enum import Enum
+
 from docker.utils import parse_bytes
 from pydantic import BaseModel, field_validator
+
+
+class DeploymentMode(str, Enum):
+    """Deployment mode enum for service configuration."""
+
+    DOCKER = "docker"
+    KUBERNETES = "kubernetes"
 
 
 class ContainerResources(BaseModel):

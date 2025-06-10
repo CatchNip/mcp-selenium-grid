@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import docker
 from docker.errors import APIError, NotFound
@@ -158,31 +158,6 @@ class DockerHubBackend(HubBackend):
                 continue  # Skip this browser creation on unexpected error
 
         return browser_ids
-
-    async def get_browser_status(self, browser_id: str) -> Dict[str, Any]:
-        """Get status for a specific browser instance by container ID (Docker)."""
-        try:
-            container = self.client.containers.get(browser_id)
-            container.reload()
-            image_tag = None
-            image = getattr(container, "image", None)
-            if image and getattr(image, "tags", None):
-                image_tag = image.tags[0] if image.tags else None
-            return {
-                "id": getattr(container, "id", "")[:12],
-                "status": getattr(container, "status", None),
-                "name": getattr(container, "name", None),
-                "image": image_tag,
-            }
-        except NotFound:
-            logging.info(f"Browser container with ID {browser_id} not found.")
-            return {"status": "not found"}
-        except APIError as e:
-            logging.error(f"Docker API error getting status for {browser_id}: {e}")
-            return {"status": "error", "message": str(e)}
-        except Exception as e:
-            logging.exception(f"Unexpected error getting status for {browser_id}: {e}")
-            return {"status": "error", "message": str(e)}
 
     async def delete_browser(self, browser_id: str) -> bool:
         """Delete a specific browser instance by container ID (Docker). Returns True if deleted, False otherwise."""
