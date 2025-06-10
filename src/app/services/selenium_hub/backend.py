@@ -7,12 +7,27 @@ from app.core.models import BrowserConfig
 class HubBackend(ABC):
     """Abstract interface for Selenium Hub backends."""
 
+    # Constants for resource names
+    HUB_NAME = "selenium-hub"
+    NETWORK_NAME = "selenium-grid"
+    NODE_LABEL = "selenium-node"
+    BROWSER_LABEL = "browser"
+
     def __init__(self: "HubBackend", *args: Any, **kwargs: Any) -> None:
         pass
 
     @abstractmethod
+    def cleanup_hub(self) -> None:
+        """Clean up Selenium Hub and its related resources."""
+
+    @abstractmethod
+    def cleanup_browsers(self) -> None:
+        """Clean up all browser instances."""
+
     def cleanup(self) -> None:
-        pass
+        """Clean up all resources by first cleaning up browsers then the hub."""
+        self.cleanup_browsers()
+        self.cleanup_hub()
 
     @abstractmethod
     async def ensure_hub_running(self) -> bool:

@@ -94,53 +94,53 @@ class KubernetesHubBackend(HubBackend):
                 raise  # Re-raise unexpected errors
         logging.warning(f"Timeout waiting for {resource_type} {name} to be deleted.")
 
-    def cleanup(self) -> None:
-        """
-        Clean up all Selenium Hub-related resources in the configured namespace.
-        Deletes all selenium-node pods, the selenium-hub deployment, and the selenium-hub service.
-        """
-        # Delete selenium-node pods using collection deletion
-        try:
-            logging.info(f"Deleting selenium-node pods in namespace {self.ns}...")
-            self.k8s_core.delete_collection_namespaced_pod(
-                namespace=self.ns, label_selector="app=selenium-node"
-            )
-            # Note: delete_collection is asynchronous, a more robust wait might be needed
-            # depending on the exact requirements, but this is a basic implementation.
-            logging.info("Selenium-node pods delete request sent.")
-        except ApiException as api_exc:
-            if api_exc.status != K8S_NOT_FOUND:
-                logging.error(f"Failed to delete selenium-node pods: {api_exc}")
-            else:
-                logging.info("No selenium-node pods found for deletion.")
-        except Exception as exc:
-            logging.exception(f"Unexpected error deleting selenium-node pods: {exc}")
-
+    def cleanup_hub(self) -> None:
+        """Clean up Selenium Hub deployment and service."""
         # Delete selenium-hub deployment
         try:
-            logging.info(f"Deleting selenium-hub deployment in namespace {self.ns}...")
-            self.k8s_apps.delete_namespaced_deployment(name="selenium-hub", namespace=self.ns)
-            self._wait_for_resource_deletion("deployment", "selenium-hub")
+            logging.info(f"Deleting {self.HUB_NAME} deployment in namespace {self.ns}...")
+            self.k8s_apps.delete_namespaced_deployment(name=self.HUB_NAME, namespace=self.ns)
+            self._wait_for_resource_deletion("deployment", self.HUB_NAME)
         except ApiException as api_exc:
             if api_exc.status != K8S_NOT_FOUND:
-                logging.error(f"Failed to delete deployment selenium-hub: {api_exc}")
+                logging.error(f"Failed to delete deployment {self.HUB_NAME}: {api_exc}")
             else:
-                logging.info("Selenium-hub deployment not found for deletion.")
+                logging.info(f"{self.HUB_NAME} deployment not found for deletion.")
         except Exception as exc:
-            logging.exception(f"Unexpected error deleting deployment selenium-hub: {exc}")
+            logging.exception(f"Unexpected error deleting deployment {self.HUB_NAME}: {exc}")
 
         # Delete selenium-hub service
         try:
-            logging.info(f"Deleting selenium-hub service in namespace {self.ns}...")
-            self.k8s_core.delete_namespaced_service(name="selenium-hub", namespace=self.ns)
-            self._wait_for_resource_deletion("service", "selenium-hub")
+            logging.info(f"Deleting {self.HUB_NAME} service in namespace {self.ns}...")
+            self.k8s_core.delete_namespaced_service(name=self.HUB_NAME, namespace=self.ns)
+            self._wait_for_resource_deletion("service", self.HUB_NAME)
         except ApiException as api_exc:
             if api_exc.status != K8S_NOT_FOUND:
-                logging.error(f"Failed to delete service selenium-hub: {api_exc}")
+                logging.error(f"Failed to delete service {self.HUB_NAME}: {api_exc}")
             else:
-                logging.info("Selenium-hub service not found for deletion.")
+                logging.info(f"{self.HUB_NAME} service not found for deletion.")
         except Exception as exc:
-            logging.exception(f"Unexpected error deleting service selenium-hub: {exc}")
+            logging.exception(f"Unexpected error deleting service {self.HUB_NAME}: {exc}")
+
+    def cleanup_browsers(self) -> None:
+        """Clean up all browser pods."""
+        try:
+            logging.info(f"Deleting {self.NODE_LABEL} pods in namespace {self.ns}...")
+            self.k8s_core.delete_collection_namespaced_pod(
+                namespace=self.ns, label_selector=f"app={self.NODE_LABEL}"
+            )
+            logging.info(f"{self.NODE_LABEL} pods delete request sent.")
+        except ApiException as api_exc:
+            if api_exc.status != K8S_NOT_FOUND:
+                logging.error(f"Failed to delete {self.NODE_LABEL} pods: {api_exc}")
+            else:
+                logging.info(f"No {self.NODE_LABEL} pods found for deletion.")
+        except Exception as exc:
+            logging.exception(f"Unexpected error deleting {self.NODE_LABEL} pods: {exc}")
+
+    def cleanup(self) -> None:
+        """Clean up all resources by first cleaning up browsers then the hub."""
+        super().cleanup()
 
     def _ensure_namespace_exists(self) -> None:
         """Ensure the Kubernetes namespace exists."""
@@ -170,37 +170,37 @@ class KubernetesHubBackend(HubBackend):
     def _ensure_deployment_exists(self) -> None:
         """Ensure the Selenium Hub deployment exists."""
         try:
-            self.k8s_apps.read_namespaced_deployment(name="selenium-hub", namespace=self.ns)
-            logging.info("Selenium-hub deployment already exists.")
+            self.k8s_apps.read_namespaced_deployment(name=self.HUB_NAME, namespace=self.ns)
+            logging.info(f"{self.HUB_NAME} deployment already exists.")
         except ApiException as e:
             if e.status == K8S_NOT_FOUND:
-                logging.info("Selenium-hub deployment not found, creating...")
+                logging.info(f"{self.HUB_NAME} deployment not found, creating...")
                 deployment = self._create_hub_deployment()
                 self.k8s_apps.create_namespaced_deployment(namespace=self.ns, body=deployment)
-                logging.info("Selenium-hub deployment created.")
+                logging.info(f"{self.HUB_NAME} deployment created.")
             else:
-                logging.error(f"Error reading deployment selenium-hub: {e}")
+                logging.error(f"Error reading deployment {self.HUB_NAME}: {e}")
                 raise  # Re-raise other API errors after logging
         except Exception as e:
-            logging.exception(f"Unexpected error ensuring deployment selenium-hub: {e}")
+            logging.exception(f"Unexpected error ensuring deployment {self.HUB_NAME}: {e}")
             raise  # Re-raise other unexpected errors after logging
 
     def _ensure_service_exists(self) -> None:
         """Ensure the Selenium Hub service exists."""
         try:
-            self.k8s_core.read_namespaced_service(name="selenium-hub", namespace=self.ns)
-            logging.info("Selenium-hub service already exists.")
+            self.k8s_core.read_namespaced_service(name=self.HUB_NAME, namespace=self.ns)
+            logging.info(f"{self.HUB_NAME} service already exists.")
         except ApiException as e:
             if e.status == K8S_NOT_FOUND:
-                logging.info("Selenium-hub service not found, creating...")
+                logging.info(f"{self.HUB_NAME} service not found, creating...")
                 service = self._create_hub_service()
                 self.k8s_core.create_namespaced_service(namespace=self.ns, body=service)
-                logging.info("Selenium-hub service created.")
+                logging.info(f"{self.HUB_NAME} service created.")
             else:
-                logging.error(f"Error reading service selenium-hub: {e}")
+                logging.error(f"Error reading service {self.HUB_NAME}: {e}")
                 raise  # Re-raise other API errors after logging
         except Exception as e:
-            logging.exception(f"Unexpected error ensuring service selenium-hub: {e}")
+            logging.exception(f"Unexpected error ensuring service {self.HUB_NAME}: {e}")
             raise  # Re-raise other unexpected errors after logging
 
     async def ensure_hub_running(self) -> bool:
@@ -237,19 +237,20 @@ class KubernetesHubBackend(HubBackend):
         for _ in range(count):
             for i in range(self.settings.K8S_MAX_RETRIES):
                 try:
-                    pod_name = f"selenium-node-{browser_type}-{uuid.uuid4().hex[:8]}"
+                    pod_name = f"{self.NODE_LABEL}-{browser_type}-{uuid.uuid4().hex[:8]}"
                     pod = V1Pod(
                         metadata=V1ObjectMeta(
-                            name=pod_name, labels={"app": "selenium-node", "browser": browser_type}
+                            name=pod_name,
+                            labels={"app": self.NODE_LABEL, self.BROWSER_LABEL: browser_type},
                         ),
                         spec=V1PodSpec(
                             containers=[
                                 V1Container(
-                                    name=f"selenium-node-{browser_type}",
+                                    name=f"{self.NODE_LABEL}-{browser_type}",
                                     image=config.image,
                                     ports=[V1ContainerPort(container_port=config.port)],
                                     env=[
-                                        V1EnvVar(name="SE_EVENT_BUS_HOST", value="selenium-hub"),
+                                        V1EnvVar(name="SE_EVENT_BUS_HOST", value=self.HUB_NAME),
                                         V1EnvVar(name="SE_VNC_NO_PASSWORD", value="true"),
                                         V1EnvVar(
                                             name="SE_OPTS",
@@ -304,7 +305,7 @@ class KubernetesHubBackend(HubBackend):
         """
         # Define the deployment
         container = V1Container(
-            name="selenium-hub",
+            name=self.HUB_NAME,
             image="selenium/hub:4.18.1",  # Use a specific version
             ports=[V1ContainerPort(container_port=4444)],
             env=[
@@ -321,21 +322,20 @@ class KubernetesHubBackend(HubBackend):
         )
 
         template = V1PodTemplateSpec(
-            metadata=V1ObjectMeta(labels={"app": "selenium-hub"}),
+            metadata=V1ObjectMeta(labels={"app": self.HUB_NAME}),
             spec=V1PodSpec(containers=[container]),
         )
 
         spec = V1DeploymentSpec(
             replicas=1,  # Ensure only one hub instance
             template=template,
-            selector=V1LabelSelector(match_labels={"app": "selenium-hub"}),
-            # Remove strategy argument if AppsV1DeploymentStrategy is not available
+            selector=V1LabelSelector(match_labels={"app": self.HUB_NAME}),
         )
 
         deployment = V1Deployment(
             api_version="apps/v1",
             kind="Deployment",
-            metadata=V1ObjectMeta(name="selenium-hub", namespace=self.ns),
+            metadata=V1ObjectMeta(name=self.HUB_NAME, namespace=self.ns),
             spec=spec,
         )
 
@@ -347,7 +347,7 @@ class KubernetesHubBackend(HubBackend):
         """
         # Define the service
         spec = V1ServiceSpec(
-            selector={"app": "selenium-hub"},
+            selector={"app": self.HUB_NAME},
             ports=[V1ServicePort(port=4444, target_port=4444)],  # Expose port 4444
             type="LoadBalancer",  # Use LoadBalancer for external access
         )
@@ -355,7 +355,7 @@ class KubernetesHubBackend(HubBackend):
         service = V1Service(
             api_version="v1",
             kind="Service",
-            metadata=V1ObjectMeta(name="selenium-hub", namespace=self.ns),
+            metadata=V1ObjectMeta(name=self.HUB_NAME, namespace=self.ns),
             spec=spec,
         )
 
