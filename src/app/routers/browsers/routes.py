@@ -1,53 +1,37 @@
 """Browser management endpoints for MCP Server."""
 
-from typing import Annotated, Any, Dict
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
-from pydantic import BaseModel
 
-from app.core.models import BrowserInstance
+from app.core.models import BrowserConfig, BrowserInstance
 from app.core.settings import Settings
 from app.dependencies import get_settings, verify_token
-from app.routers.browsers.models import BrowserRequest, BrowserResponse
 from app.services.selenium_hub import SeleniumHub
 
-
-class BrowserStatusResponse(BaseModel):
-    """Browser status response model."""
-
-    status: str
-    details: Dict[str, Any]
-
-
-class BrowserHealthResponse(BaseModel):
-    """Browser health response model."""
-
-    cpu_usage: float
-    memory_usage: float
-
-
-class BrowserDeleteResponse(BaseModel):
-    """Browser delete response model."""
-
-    success: bool
-    message: str
-
+from .models import (
+    BrowserResponseStatus,
+    CreateBrowserRequest,
+    CreateBrowserResponse,
+    DeleteBrowserRequest,
+    DeleteBrowserResponse,
+)
 
 router = APIRouter(prefix="/browsers", tags=["Browsers"])
 
 
 @router.post(
     "/create",
-    response_model=BrowserResponse,
+    response_model=CreateBrowserResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_browsers(
     fastapi_request: Request,
-    request: BrowserRequest,
+    request: CreateBrowserRequest,
     settings: Annotated[Settings, Depends(get_settings)],
     credentials: HTTPAuthorizationCredentials = Depends(verify_token),
-) -> BrowserResponse:
+) -> CreateBrowserResponse:
     """Create browser instances in Selenium Grid."""
     if settings.MAX_BROWSER_INSTANCES and request.count > settings.MAX_BROWSER_INSTANCES:
         raise HTTPException(
@@ -64,12 +48,12 @@ async def create_browsers(
 
     hub = SeleniumHub()  # This will return the singleton instance
     try:
-        browser_ids = await hub.create_browsers(
+        browser_ids: List[str] = await hub.create_browsers(
             count=request.count,
             browser_type=request.browser_type,
         )
-        browser_config = settings.BROWSER_CONFIGS[request.browser_type]
-        browsers = [
+        browser_config: BrowserConfig = settings.BROWSER_CONFIGS[request.browser_type]
+        browsers: List[BrowserInstance] = [
             BrowserInstance(id=bid, type=request.browser_type, resources=browser_config.resources)
             for bid in browser_ids
         ]
@@ -86,31 +70,56 @@ async def create_browsers(
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-    return BrowserResponse(browsers=browsers, hub_url=settings.SELENIUM_HUB_BASE_URL_DYNAMIC)
+    return CreateBrowserResponse(
+        browsers=browsers,
+        hub_url=hub.URL,
+        status=BrowserResponseStatus.CREATED,
+        message="Browser(s) created successfully.",
+    )
 
 
-@router.delete(
-    "/{browser_id}",
-    response_model=BrowserDeleteResponse,
+@router.post(
+    "/delete",
+    response_model=DeleteBrowserResponse,
+    status_code=status.HTTP_200_OK,
 )
-async def delete_browser(
-    browser_id: str,
+async def delete_browsers(
+    request: DeleteBrowserRequest,
     fastapi_request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
     credentials: HTTPAuthorizationCredentials = Depends(verify_token),
-) -> BrowserDeleteResponse:
-    """Delete a specific browser instance."""
+) -> DeleteBrowserResponse:
+    """Delete browser instances."""
+    if not request.browsers_ids:
+        return DeleteBrowserResponse(
+            browsers_ids=[],
+            status=BrowserResponseStatus.UNCHANGED,
+            message="No Browsers to delete.",
+        )
+
     hub = SeleniumHub()
-    deleted_ids = await hub.delete_browsers([browser_id])
-    success = browser_id in deleted_ids
+    deleted_ids: List[str] = await hub.delete_browsers(request.browsers_ids)
 
     # Remove from app state if deletion was successful
-    if success:
+    count_deleted_ids = len(deleted_ids)
+    if count_deleted_ids:
         app_state = fastapi_request.app.state
         async with app_state.browsers_instances_lock:
-            app_state.browsers_instances.pop(browser_id, None)
+            for id in deleted_ids:
+                app_state.browsers_instances.pop(id, None)
 
-    return BrowserDeleteResponse(
-        success=success,
-        message="Browser deleted successfully" if success else "Failed to delete browser",
-    )
+        messages: List[str] = [f"{count_deleted_ids} browser(s) deleted successfully."]
+
+        not_foud: int = len(request.browsers_ids) - count_deleted_ids
+        if not_foud > 0:
+            messages.append(f"{not_foud} browser(s) not found.")
+
+        return DeleteBrowserResponse(
+            browsers_ids=deleted_ids,
+            status=BrowserResponseStatus.DELETED,
+            message=" ".join(messages),
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No browsers found to delete in the list: {request.browsers_ids}",
+        )

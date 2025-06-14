@@ -26,6 +26,11 @@ class SeleniumHubManager:
             )
         self.backend: HubBackend = backend_cls(settings)
 
+    @property
+    def URL(self) -> str:
+        """Return the base URL for the Selenium Hub."""
+        return self.backend.URL
+
     def cleanup(self) -> None:
         self.backend.cleanup()
 

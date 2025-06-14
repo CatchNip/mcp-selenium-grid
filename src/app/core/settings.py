@@ -2,9 +2,17 @@
 
 import json
 import os
-from typing import Any, Dict, List, Tuple, Type
+from pathlib import Path
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,  # Add Optional for the new field
+    Tuple,
+    Type,
+)
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -35,19 +43,32 @@ class Settings(BaseSettings):
     API_V1_STR: str = Field(default="/api/v1")
 
     # API Token
-    API_TOKEN: str = Field(default="CHANGE_ME")
+    API_TOKEN: SecretStr = Field(default=SecretStr("CHANGE_ME"))
 
     # Selenium Hub Auth
-    SELENIUM_HUB_USER: str = Field(default="user")
-    SELENIUM_HUB_PASSWORD: str = Field(default="CHANGE_ME")
+    SELENIUM_HUB_USER: SecretStr = Field(default=SecretStr("user"))
+    SELENIUM_HUB_PASSWORD: SecretStr = Field(default=SecretStr("CHANGE_ME"))
 
     # Selenium Settings
-    SELENIUM_HUB_PORT: int = Field(default=4444)
+    SELENIUM_HUB_PORT: int = Field(default=4444, frozen=True)
+
+    @model_validator(mode="after")
+    def _check_selenium_hub_port_is_default(self) -> "Settings":
+        """Ensure SELENIUM_HUB_PORT remains the default value."""
+        default_port = 4444
+        if self.SELENIUM_HUB_PORT != default_port:
+            raise ValueError(
+                f"SELENIUM_HUB_PORT cannot be set. Port {default_port} is hardcoded in the container image."
+            )
+        return self
+
     MAX_BROWSER_INSTANCES: int = Field(default=1)
     SE_NODE_MAX_SESSIONS: int = Field(default=1)
 
     # VNC Settings
-    SELENIUM_HUB_VNC_PASSWORD: str = Field(default="secret")
+    SELENIUM_HUB_VNC_PASSWORD: SecretStr = Field(default=SecretStr("secret"))
+    SELENIUM_HUB_VNC_PORT: int = Field(default=7900)
+
     SELENIUM_HUB_VNC_VIEW_ONLY: bool = Field(default=True)
 
     @field_validator("SELENIUM_HUB_VNC_VIEW_ONLY", mode="after")
@@ -56,7 +77,6 @@ class Settings(BaseSettings):
         """Convert SELENIUM_HUB_VNC_VIEW_ONLY boolean to "1" or "0" string."""
         return "1" if v else "0"
 
-    SELENIUM_HUB_VNC_PORT: int = Field(default=7900)
     SE_VNC_NO_PASSWORD: bool = Field(default=False)
 
     @field_validator("SE_VNC_NO_PASSWORD", mode="before")
@@ -79,7 +99,10 @@ class Settings(BaseSettings):
     )
 
     # Kubernetes Settings
+    K8S_KUBECONFIG: Optional[Path] = Field(default=None)
+    K8S_CONTEXT: Optional[str] = Field(default=None)
     K8S_NAMESPACE: str = Field(default="selenium-grid")
+    K8S_SELENIUM_GRID_SERVICE_NAME: str = Field(default="selenium-grid")
     K8S_RETRY_DELAY_SECONDS: int = Field(default=2)
     K8S_MAX_RETRIES: int = Field(default=5)
 
@@ -103,21 +126,6 @@ class Settings(BaseSettings):
                 cfg["resources"] = ContainerResources(**cfg["resources"])
             configs[name] = BrowserConfig(**cfg)
         return configs
-
-    @property
-    def SELENIUM_HUB_BASE_URL_DYNAMIC(self) -> str:
-        """
-        Dynamically determine the Selenium Hub base URL based on deployment mode.
-        - For 'docker': use 'http://localhost:4444'
-        - For 'kubernetes': use 'http://selenium-hub.{namespace}.svc.cluster.local:4444'
-        """
-        if self.DEPLOYMENT_MODE == DeploymentMode.DOCKER:
-            return f"http://localhost:{self.SELENIUM_HUB_PORT}"
-        elif self.DEPLOYMENT_MODE == DeploymentMode.KUBERNETES:
-            return f"http://selenium-hub.{self.K8S_NAMESPACE}.svc.cluster.local:{self.SELENIUM_HUB_PORT}"
-        else:
-            # fallback to localhost for unknown modes
-            return f"http://localhost:{self.SELENIUM_HUB_PORT}"
 
     @override
     @classmethod

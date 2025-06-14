@@ -15,6 +15,11 @@ class DockerHubBackend(HubBackend):
         self.client = docker.from_env()
         self.settings = settings
 
+    @property
+    def URL(self) -> str:
+        """Base URL for the Docker Selenium Hub."""
+        return f"http://localhost:{self.settings.SELENIUM_HUB_PORT}"
+
     def _remove_container(self, container_name: str) -> None:
         """Helper method to remove a container by name."""
         try:
@@ -106,11 +111,16 @@ class DockerHubBackend(HubBackend):
                     "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS),
                     "SE_NODE_OVERRIDE_MAX_SESSIONS": "true",
                     "SE_VNC_NO_PASSWORD": str(self.settings.SE_VNC_NO_PASSWORD),
-                    "SE_VNC_PASSWORD": str(self.settings.SELENIUM_HUB_VNC_PASSWORD),
+                    "SE_VNC_PASSWORD": str(
+                        self.settings.SELENIUM_HUB_VNC_PASSWORD.get_secret_value()
+                    ),
                     "SE_VNC_VIEW_ONLY": str(self.settings.SELENIUM_HUB_VNC_VIEW_ONLY),
-                    "SE_OPTS": f"--username {self.settings.SELENIUM_HUB_USER} \
-                        --password {self.settings.SELENIUM_HUB_PASSWORD}",
+                    "SE_OPTS": f"--username {self.settings.SELENIUM_HUB_USER.get_secret_value()} \
+                        --password {self.settings.SELENIUM_HUB_PASSWORD.get_secret_value()}",
                 },
+                mem_limit="256M",
+                cpu_quota=int(0.5 * 100000),  # Convert to microseconds
+                cpu_period=100000,  # 100ms period
             )
             logging.info(f"{self.HUB_NAME} container created and started.")
         except APIError as e:
@@ -154,18 +164,16 @@ class DockerHubBackend(HubBackend):
                     labels={self.NODE_LABEL: "true", self.BROWSER_LABEL: browser_type},
                     environment={
                         "SE_EVENT_BUS_HOST": self.HUB_NAME,
+                        "SE_PORT": str(self.settings.SELENIUM_HUB_PORT),
                         "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                         "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
-                        "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS or 1),
-                        "SE_HUB_USER": getattr(self.settings, "SELENIUM_HUB_USER", None)
-                        or getattr(self.settings, "selenium_hub_user", None)
-                        or "user",
-                        "SE_HUB_PASSWORD": getattr(self.settings, "SELENIUM_HUB_PASSWORD", None)
-                        or getattr(self.settings, "selenium_hub_password", None)
-                        or "CHANGE_ME",
+                        "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS),
+                        "SE_OPTS": f"--username {self.settings.SELENIUM_HUB_USER.get_secret_value()} \
+                        --password {self.settings.SELENIUM_HUB_PASSWORD.get_secret_value()}",
                     },
                     mem_limit=config.resources.memory,
-                    cpu_count=int(config.resources.cpu),
+                    cpu_quota=int(float(config.resources.cpu) * 100000),  # Convert to microseconds
+                    cpu_period=100000,  # 100ms period
                 )
                 cid = getattr(container, "id", None)
                 if not cid:

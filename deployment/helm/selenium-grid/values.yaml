@@ -1,0 +1,55 @@
+# Namespace configuration
+namespace: selenium-grid
+
+# Service Account configuration
+serviceAccount:
+  name: selenium-grid-sa
+  create: true
+
+# RBAC configuration
+rbac:
+  create: true
+  role:
+    name: selenium-grid-role
+  roleBinding:
+    name: selenium-grid-rolebinding
+
+# Resource quotas
+resources:
+  # Resource limits for the namespace
+  limits:
+    cpu: "4"        # Total CPU cores available (1 per browser * 3 browsers + 1 for hub)
+    memory: "2Gi"   # Total memory available (512Mi per browser * 3 browsers + 512Mi for hub)
+    pods: "10"      # Maximum number of pods (3 browsers + 1 hub + room for scaling)
+  # Resource requests (minimum guaranteed)
+  requests:
+    cpu: "2"        # Minimum CPU cores (0.5 per browser * 3 browsers + 0.5 for hub)
+    memory: "1.5Gi" # Minimum memory (512Mi per browser * 3 browsers)
+  # Per-pod resource limits
+  podLimits:
+    cpu: "1"        # 1 CPU core per pod (recommended for stable browser operation)
+    memory: "512Mi" # 512Mi memory per pod (matching browser config)
+  # Per-pod resource requests
+  podRequests:
+    cpu: "0.5"      # 0.5 CPU core per pod (minimum required)
+    memory: "512Mi" # 512Mi memory per pod (matching browser config)
+
+# Network policy configuration
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: selenium-grid
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: selenium-grid
+
+# Kubeconfig configuration
+kubeconfig:
+  enabled: true
+  path: ./kubeconfig.yaml
+  permissions: "600" 

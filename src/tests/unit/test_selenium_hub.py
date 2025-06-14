@@ -11,6 +11,7 @@ from app.core.settings import Settings
 from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.docker_backend import DockerHubBackend
 from app.services.selenium_hub.k8s_backend import KubernetesHubBackend
+from pydantic import SecretStr
 from pytest_mock import MockerFixture
 
 from tests.conftest import reset_selenium_hub_singleton
@@ -53,6 +54,9 @@ def generate_selenium_fixture(
         mocker.patch.object(backend_cls, "ensure_hub_running", ensure_hub_running_mock)
         mocker.patch.object(backend_cls, "create_browsers", create_browsers_mock)
         mocker.patch.object(backend_cls, "delete_browsers", delete_browsers_mock)
+
+        if backend_cls is KubernetesHubBackend:
+            mocker.patch.object(backend_cls, "_load_k8s_config", return_value=None)
 
         settings = request.getfixturevalue(settings_arg_name)
 
@@ -130,9 +134,6 @@ async def test_check_hub_health(
     """
     Parametrized test for check_hub_health for both healthy and unhealthy cases.
     """
-    # Mock the settings
-    mocker.patch.object(hub.settings, "SELENIUM_HUB_BASE_URL_DYNAMIC", "http://selenium-hub:4444")
-
     mock_client = mocker.AsyncMock()
     if httpx_side_effect is None:
         mock_response = mocker.AsyncMock()
@@ -375,10 +376,9 @@ async def test_singleton_behavior() -> None:
         PROJECT_NAME="Test Project",
         VERSION="0.1.0",
         API_V1_STR="/api/v1",
-        API_TOKEN="test-token",  # noqa: S106
-        SELENIUM_HUB_USER="test-user",
-        SELENIUM_HUB_PASSWORD="test-password",  # noqa: S106
-        SELENIUM_HUB_PORT=4444,
+        API_TOKEN=SecretStr("test-token"),
+        SELENIUM_HUB_USER=SecretStr("test-user"),
+        SELENIUM_HUB_PASSWORD=SecretStr("test-password"),
         MAX_BROWSER_INSTANCES=2,
         SE_NODE_MAX_SESSIONS=1,
         DEPLOYMENT_MODE=DeploymentMode.DOCKER,

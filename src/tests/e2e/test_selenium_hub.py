@@ -4,14 +4,17 @@ from urllib.parse import urljoin
 
 import httpx
 import pytest
+from app.core.models import DeploymentMode
 from app.core.settings import Settings
 from app.services.selenium_hub.selenium_hub import SeleniumHub
 
 
 @pytest.mark.e2e
-async def test_check_hub_health() -> None:
+@pytest.fixture(scope="session", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
+async def test_check_hub_health(request: pytest.FixtureRequest) -> None:
     """Test that check_hub_health returns True when the hub is healthy."""
-    settings = Settings()
+
+    settings = Settings(DEPLOYMENT_MODE=request.param)
     hub = SeleniumHub(settings)
 
     # Ensure hub is running and verify it
@@ -21,9 +24,12 @@ async def test_check_hub_health() -> None:
     assert await hub.wait_for_hub_healthy() is True, "Hub failed to become healthy within timeout"
 
     # Verify hub status endpoint is accessible
-    auth = httpx.BasicAuth(settings.SELENIUM_HUB_USER, settings.SELENIUM_HUB_PASSWORD)
+    auth = httpx.BasicAuth(
+        settings.SELENIUM_HUB_USER.get_secret_value(),
+        settings.SELENIUM_HUB_PASSWORD.get_secret_value(),
+    )
     async with httpx.AsyncClient(auth=auth) as client:
-        response = await client.get(urljoin(settings.SELENIUM_HUB_BASE_URL_DYNAMIC, "status"))
+        response = await client.get(urljoin(hub.URL, "status"))
         assert response.status_code == httpx.codes.OK, (
             f"Hub status endpoint returned {response.status_code}"
         )

@@ -16,6 +16,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
+from pydantic import SecretStr
+from pytest import FixtureRequest
 from pytest_mock import MockerFixture
 
 
@@ -122,12 +124,12 @@ def docker_hub_settings(mocker: MockerFixture) -> MagicMock:
     settings.BROWSER_CONFIGS = {
         "chrome": BrowserConfig(
             image="selenium/node-chrome:latest",
-            resources=ContainerResources(memory="1G", cpu="1"),
+            resources=ContainerResources(memory="512M", cpu="0.5"),
             port=4444,
         )
     }  # Mock browser configs with full structure
-    settings.SELENIUM_HUB_USER = "test-user"
-    settings.SELENIUM_HUB_PASSWORD = "test-password"  # noqa: S105
+    settings.SELENIUM_HUB_USER = SecretStr("test-user")
+    settings.SELENIUM_HUB_PASSWORD = SecretStr("test-password")
     return settings
 
 
@@ -189,7 +191,9 @@ def k8s_hub_settings(mocker: MockerFixture) -> MagicMock:
     """Fixture to provide a mocked settings object for KubernetesHubBackend."""
     settings: MagicMock = mocker.MagicMock(spec=core_settings.Settings())
     settings.DEPLOYMENT_MODE = DeploymentMode.KUBERNETES
+    settings.K8S_K8S_CONTEXT = "test-context"
     settings.K8S_NAMESPACE = "test-namespace"
+    settings.K8S_SELENIUM_GRID_SERVICE_NAME = "test-service-name"
     settings.K8S_MAX_RETRIES = 3
     settings.K8S_RETRY_DELAY_SECONDS = 0
     settings.MAX_BROWSER_INSTANCES = 8
@@ -197,12 +201,12 @@ def k8s_hub_settings(mocker: MockerFixture) -> MagicMock:
     settings.BROWSER_CONFIGS = {
         "chrome": BrowserConfig(
             image="selenium/node-chrome:latest",
-            resources=ContainerResources(memory="1G", cpu="1"),
+            resources=ContainerResources(memory="512M", cpu="0.5"),
             port=4444,
         )
     }  # Mock browser configs with full structure
-    settings.SELENIUM_HUB_USER = "test-user"
-    settings.SELENIUM_HUB_PASSWORD = "test-password"  # noqa: S105
+    settings.SELENIUM_HUB_USER = SecretStr("test-user")
+    settings.SELENIUM_HUB_PASSWORD = SecretStr("test-password")
     return settings
 
 
@@ -213,6 +217,8 @@ def k8s_backend(
     mocker: MockerFixture,
 ) -> Generator[KubernetesHubBackend, None, None]:
     """Fixture that yields a KubernetesHubBackend instance with mocked K8s clients."""
+
+    mocker.patch.object(KubernetesHubBackend, "_load_k8s_config", return_value=None)
 
     core, apps = mock_k8s_apis
     backend = KubernetesHubBackend(k8s_hub_settings)
@@ -238,7 +244,10 @@ def k8s_backend(
 def selenium_hub_basic_auth_headers() -> BasicAuth:
     """Fixture to provide HTTP Basic Auth for Selenium Hub."""
     settings = get_settings()
-    return BasicAuth(settings.SELENIUM_HUB_USER, settings.SELENIUM_HUB_PASSWORD)
+    return BasicAuth(
+        settings.SELENIUM_HUB_USER.get_secret_value(),
+        settings.SELENIUM_HUB_PASSWORD.get_secret_value(),
+    )
 
 
 # ==============================================================================
@@ -251,8 +260,9 @@ def selenium_hub_basic_auth_headers() -> BasicAuth:
 # ==============================================================================
 
 
-@pytest.fixture(scope="session")
-def client() -> Generator[TestClient, None, None]:
+# Client fixture used by Integration and E2E tests
+@pytest.fixture(scope="session", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
+def client(request: FixtureRequest) -> Generator[TestClient, None, None]:
     """Create a test client for the FastAPI app with dependency override for verify_token."""
     from app.dependencies import verify_token
     from app.main import create_application
@@ -262,6 +272,11 @@ def client() -> Generator[TestClient, None, None]:
     security = HTTPBearer()
 
     app = create_application()
+
+    # Override settings based on deployment mode
+    settings = get_settings()
+    settings.DEPLOYMENT_MODE = request.param
+    app.dependency_overrides[get_settings] = lambda: settings
 
     async def verify_token_override(
         credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -288,4 +303,4 @@ def reset_selenium_hub_singleton() -> None:
 @pytest.fixture
 def auth_headers() -> Dict[str, str]:
     """Create authentication headers for API requests."""
-    return {"Authorization": f"Bearer {get_settings().API_TOKEN}"}
+    return {"Authorization": f"Bearer {get_settings().API_TOKEN.get_secret_value()}"}

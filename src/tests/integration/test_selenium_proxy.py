@@ -2,14 +2,9 @@
 
 import pytest
 from app.routers.selenium_proxy import SELENIUM_HUB_PREFIX
-from app.routers.selenium_proxy import router as selenium_proxy_router
-from fastapi import FastAPI, status
+from fastapi import status
 from httpx import BasicAuth
 from starlette.testclient import TestClient
-
-app = FastAPI()
-app.include_router(selenium_proxy_router)
-client = TestClient(app)
 
 
 @pytest.mark.integration
@@ -50,7 +45,9 @@ def test_proxy_forwards_request(
 
 
 @pytest.mark.integration
-def test_selenium_hub_ui_flow(selenium_hub_basic_auth_headers: BasicAuth) -> None:
+def test_selenium_hub_ui_flow(
+    client: TestClient, selenium_hub_basic_auth_headers: BasicAuth
+) -> None:
     """
     Test the full UI flow: verify HTML response from {SELENIUM_HUB_PREFIX}/ui and its assets.
 

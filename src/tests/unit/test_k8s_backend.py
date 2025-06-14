@@ -25,8 +25,8 @@ def test_cleanup_deletes_resources(
     mock_delete_pods.assert_called_once_with(
         namespace="test-namespace", label_selector="app=selenium-node"
     )
-    mock_delete_deploy.assert_called_once_with(name="selenium-hub", namespace="test-namespace")
-    mock_delete_svc.assert_called_once_with(name="selenium-hub", namespace="test-namespace")
+    mock_delete_deploy.assert_called_once_with(name="test-service-name", namespace="test-namespace")
+    mock_delete_svc.assert_called_once_with(name="test-service-name", namespace="test-namespace")
 
 
 @pytest.mark.unit
@@ -50,8 +50,8 @@ def test_cleanup_resources_not_found(
     mock_delete_pods.assert_called_once_with(
         namespace="test-namespace", label_selector="app=selenium-node"
     )
-    mock_delete_deploy.assert_called_once_with(name="selenium-hub", namespace="test-namespace")
-    mock_delete_svc.assert_called_once_with(name="selenium-hub", namespace="test-namespace")
+    mock_delete_deploy.assert_called_once_with(name="test-service-name", namespace="test-namespace")
+    mock_delete_svc.assert_called_once_with(name="test-service-name", namespace="test-namespace")
 
 
 # Unit tests for ensure_hub_running method
@@ -89,8 +89,8 @@ async def test_ensure_hub_running_api_error(
 ) -> None:
     """Test that ensure_hub_running returns False on error."""
     backend = k8s_backend
-    # Patch only the namespace helper to raise
-    mocker.patch.object(backend, "_ensure_namespace_exists", side_effect=Exception("fail"))
+    # Patch only the deployment helper (first in the chain) to raise. ; Any exception will do
+    mocker.patch.object(backend, "_ensure_deployment_exists", side_effect=Exception("fail"))
     result = await backend.ensure_hub_running()
     assert result is False
 

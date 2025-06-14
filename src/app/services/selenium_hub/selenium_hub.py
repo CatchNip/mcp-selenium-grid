@@ -1,6 +1,7 @@
 """Selenium Hub service for managing browser instances."""
 
 import asyncio
+import logging
 from typing import Optional
 from urllib.parse import urljoin
 
@@ -88,6 +89,16 @@ class SeleniumHub:
             # Reinitialize manager with updated settings
             self._manager = SeleniumHubManager(self.settings)
 
+    @property
+    def URL(self) -> str:
+        """
+        Get the base URL for the Selenium Hub.
+
+        Returns:
+            str: The base URL for the Selenium Hub
+        """
+        return self._manager.URL
+
     @track_hub_metrics()
     async def check_hub_health(self) -> bool:
         """
@@ -96,12 +107,21 @@ class SeleniumHub:
         Returns:
             bool: True if the hub responds with 200 OK, False otherwise.
         """
-        url = urljoin(self.settings.SELENIUM_HUB_BASE_URL_DYNAMIC, "status")
-        auth = httpx.BasicAuth(self.settings.SELENIUM_HUB_USER, self.settings.SELENIUM_HUB_PASSWORD)
+        url = urljoin(self._manager.URL, "status")
+        auth = httpx.BasicAuth(
+            self.settings.SELENIUM_HUB_USER.get_secret_value(),
+            self.settings.SELENIUM_HUB_PASSWORD.get_secret_value(),
+        )
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(2.0), auth=auth) as client:
                 response = await client.get(url)
-                return response.status_code == httpx.codes.OK
+                if response.status_code == httpx.codes.OK:
+                    return True
+                else:
+                    logging.error(
+                        f"Hub health check failed with status code: {response.status_code}"
+                    )
+                    return False
         except httpx.RequestError:
             return False
 

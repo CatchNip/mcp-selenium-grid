@@ -8,13 +8,18 @@ class HubBackend(ABC):
     """Abstract interface for Selenium Hub backends."""
 
     # Constants for resource names
-    HUB_NAME = "selenium-hub"
+    HUB_NAME = "selenium-hub"  # Represents the K8s Deployment/Service name for the hub
     NETWORK_NAME = "selenium-grid"
     NODE_LABEL = "selenium-node"
     BROWSER_LABEL = "browser"
 
     def __init__(self: "HubBackend", *args: Any, **kwargs: Any) -> None:
         pass
+
+    @property
+    @abstractmethod
+    def URL(self) -> str:
+        """Base URL for the Selenium Hub."""
 
     @abstractmethod
     def cleanup_hub(self) -> None:

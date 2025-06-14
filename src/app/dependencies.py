@@ -29,7 +29,7 @@ async def verify_token(
     settings: Settings = Depends(get_settings),
 ) -> Dict[str, str]:
     """Verify API token and return user information."""
-    if credentials.credentials != settings.API_TOKEN:
+    if credentials.credentials != settings.API_TOKEN.get_secret_value():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing token",
@@ -51,8 +51,8 @@ def verify_basic_auth(
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Basic"},
         )
-    user = settings.SELENIUM_HUB_USER
-    pwd = settings.SELENIUM_HUB_PASSWORD
+    user = settings.SELENIUM_HUB_USER.get_secret_value()
+    pwd = settings.SELENIUM_HUB_PASSWORD.get_secret_value()
 
     if credentials.username != user or credentials.password != pwd:
         raise HTTPException(

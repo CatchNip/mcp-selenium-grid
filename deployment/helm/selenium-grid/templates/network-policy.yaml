@@ -1,0 +1,16 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: selenium-grid-network-policy
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  {{- toYaml .Values.networkPolicy.ingress | nindent 2 }}
+  egress:
+  {{- toYaml .Values.networkPolicy.egress | nindent 2 }}
+{{- end }} 
