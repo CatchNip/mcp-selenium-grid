@@ -1,7 +1,5 @@
 """Core settings for MCP Server."""
 
-import json
-import os
 from pathlib import Path
 from typing import (
     Any,
@@ -151,26 +149,3 @@ class Settings(BaseSettings):
             file_secret_settings,
             YamlConfigSettingsSource(settings_cls),
         )
-
-    @classmethod
-    def _update_env(cls, instance: "Settings") -> "Settings":
-        """
-        Update environment variables for any fields in this Settings instance.
-        Serializes complex types as JSON strings.
-        Returns self for method chaining or inline use.
-        """
-        for field_name, field_value in instance.model_dump().items():
-            if isinstance(field_value, (str, int, float, bool)) or field_value is None:
-                os.environ[field_name.upper()] = str(field_value)
-            else:
-                # Serialize complex types as JSON
-                os.environ[field_name.upper()] = json.dumps(field_value)
-        return instance
-
-    def model_copy(self, **kwargs: Any) -> "Settings":
-        """
-        Override model_copy to update environment variables after copying.
-        """
-        copied = super().model_copy(**kwargs)
-        self._update_env(copied)
-        return copied

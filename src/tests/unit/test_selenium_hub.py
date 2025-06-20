@@ -409,29 +409,3 @@ async def test_singleton_behavior() -> None:
     reset_selenium_hub_singleton()
     with pytest.raises(ValueError, match="Settings must be provided for first initialization"):
         SeleniumHub()
-
-
-# @pytest.mark.unit
-# @pytest.mark.asyncio
-# async def test_settings_update() -> None:
-#     """Test that settings can be updated through initialization."""
-#     NEW_VALUE = 10
-
-#     reset_selenium_hub_singleton()
-#     initial_settings = Settings()
-#     hub = SeleniumHub(initial_settings)
-#     old_value = hub.settings.MAX_BROWSER_INSTANCES
-
-#     # Programmatically update just one value using model_copy (overrided to update env)
-#     new_settings = initial_settings.model_copy(update={"MAX_BROWSER_INSTANCES": NEW_VALUE})
-#     hub = SeleniumHub(new_settings)
-#     assert hub.settings.MAX_BROWSER_INSTANCES == NEW_VALUE
-#     assert hub.settings.MAX_BROWSER_INSTANCES != old_value
-
-#     # FIXME: AssertionError: assert 5 == 10 - getting the default value from confir.yaml or default from Settings Field
-#     # Get the settings using get_settings and check the value
-#     get_settings.cache_clear()
-#     updated_settings = get_settings()
-#     assert updated_settings.MAX_BROWSER_INSTANCES == NEW_VALUE
-
-#     reset_selenium_hub_singleton()
