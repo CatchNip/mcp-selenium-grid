@@ -1,6 +1,7 @@
-"""Token authentication for MCP Server."""
+"""FastAPI app dependencies."""
 
 from functools import lru_cache
+from secrets import compare_digest
 from typing import Dict
 
 from fastapi import Depends, HTTPException, status
@@ -16,6 +17,7 @@ from app.core.settings import Settings
 
 @lru_cache()
 def get_settings() -> Settings:
+    """Returns a cached instance of the application settings."""
     return Settings()
 
 
@@ -28,8 +30,24 @@ async def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     settings: Settings = Depends(get_settings),
 ) -> Dict[str, str]:
-    """Verify API token and return user information."""
-    if credentials.credentials != settings.API_TOKEN.get_secret_value():
+    """
+    Verifies the bearer token from the Authorization header.
+
+    Performs constant-time comparison against the configured `API_TOKEN`
+    to prevent timing attacks.
+
+    Args:
+        credentials: Bearer token extracted by FastAPI from the request.
+        settings: Application settings containing the expected token.
+
+    Returns:
+        A dict with user identity metadata (e.g., subject claim).
+
+    Raises:
+        HTTPException: 401 if the token is invalid or missing.
+    """
+
+    if not compare_digest(settings.API_TOKEN.get_secret_value(), credentials.credentials):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing token",
@@ -42,10 +60,24 @@ def verify_basic_auth(
     settings: Settings = Depends(get_settings),
 ) -> HTTPBasicCredentials:
     """
-    Verifies HTTP Basic credentials against settings (from config.yaml).
-    Returns credentials if valid, else raises HTTP 401 with WWW-Authenticate header.
+    Verifies HTTP Basic credentials using constant-time comparison.
+
+    The username and password are compared against the configured
+    `SELENIUM_HUB_USER` and `SELENIUM_HUB_PASSWORD` using
+    `secrets.compare_digest` to mitigate timing attacks.
+
+    Args:
+        credentials: Parsed Basic Auth credentials from the request.
+        settings: Application settings with expected credentials.
+
+    Returns:
+        The `HTTPBasicCredentials` object if authentication succeeds.
+
+    Raises:
+        HTTPException: 401 with `WWW-Authenticate` header if credentials
+                       are missing or invalid.
     """
-    if not credentials or not credentials.username or not credentials.password:
+    if not (credentials and credentials.username and credentials.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -54,7 +86,9 @@ def verify_basic_auth(
     user = settings.SELENIUM_HUB_USER.get_secret_value()
     pwd = settings.SELENIUM_HUB_PASSWORD.get_secret_value()
 
-    if credentials.username != user or credentials.password != pwd:
+    if not (
+        compare_digest(user, credentials.username) and compare_digest(pwd, credentials.password)
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",

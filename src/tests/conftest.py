@@ -12,8 +12,6 @@ from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.docker_backend import DockerHubBackend
 from app.services.selenium_hub.k8s_backend import KubernetesHubBackend
 from docker.errors import NotFound  # Add NotFound for mocking
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
 from pydantic import SecretStr
@@ -264,12 +262,8 @@ def selenium_hub_basic_auth_headers() -> BasicAuth:
 @pytest.fixture(scope="session", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
 def client(request: FixtureRequest) -> Generator[TestClient, None, None]:
     """Create a test client for the FastAPI app with dependency override for verify_token."""
-    from app.dependencies import verify_token
     from app.main import create_application
     from fastapi.testclient import TestClient
-
-    # HTTP Bearer token setup
-    security = HTTPBearer()
 
     app = create_application()
 
@@ -278,17 +272,6 @@ def client(request: FixtureRequest) -> Generator[TestClient, None, None]:
     settings.DEPLOYMENT_MODE = request.param
     app.dependency_overrides[get_settings] = lambda: settings
 
-    async def verify_token_override(
-        credentials: HTTPAuthorizationCredentials = Depends(security),
-    ) -> Dict[str, str]:
-        if not credentials or not credentials.credentials:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or missing token",
-            )
-        return {"sub": "api-user"}
-
-    app.dependency_overrides[verify_token] = verify_token_override
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides = {}
