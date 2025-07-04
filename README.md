@@ -1,39 +1,76 @@
 # 🤖 MCP Selenium Grid
 
-A Model Context Protocol (MCP) server that enables AI Agents to request and manage Selenium browser instances through a secure API. Perfect for your automated browser testing needs! 🚀
+A Model Context Protocol (MCP) server for managing Selenium browser instances through a REST API. Useful for browser automation and testing workflows.
+
+The MCP Selenium Grid provides a REST API for creating and managing browser instances in both Docker and Kubernetes environments. It's designed to work with AI agents and automation tools that need browser automation capabilities.
+
+## Key Features
+
+- **Multi-browser support**: Chrome, Firefox, and other Selenium-compatible browsers
+- **Dual backend support**: Docker and Kubernetes deployment modes
+- **Secure API**: Token-based authentication for browser management
+- **Scalable architecture**: Support for multiple browser instances
+- **MCP compliance**: Follows Model Context Protocol standards
+
+## 📖 Usage
+
+The MCP Selenium Grid provides a REST API for creating and managing browser instances. The server runs on `localhost:8000` and exposes MCP endpoints at `/mcp`.
+
+### Configuration
+
+The server uses `config.yaml` for configuration settings including:
+
+- API tokens and authentication
+- Deployment mode (Docker/Kubernetes)
+- Browser configurations and resource limits
+- Kubernetes context and namespace settings
+
+### MCP Client Configuration
+
+To use the MCP Selenium Grid with MCP-compatible clients (like Cursor, VS Code, etc.), add the server configuration to your `mcp.json` file:
+
+```json
+{
+  "mcpServers": {
+    "selenium-grid": {
+      "command": "uv",
+      "args": ["run", "fastapi", "run", "src/app/main.py"],
+      "env": {
+        "API_TOKEN": "your-api-token-here"
+      }
+    }
+  }
+}
+```
+
+Once the server is running, you can access the interactive API documentation at: **<http://localhost:8000/docs>**
 
 ## 🚀 Quick Start for Development
 
 ### 1. Prerequisites
 
-Make sure you have the following installed:
-
-- [uv](https://github.com/astral-sh/uv) (Python package/dependency manager)
+- [uv](https://github.com/astral-sh/uv) (Python dependency manager)
 - [Docker](https://www.docker.com/)
-- [K3s](https://k3s.io/) (for Kubernetes deployment)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [K3s](https://k3s.io/) (for Kubernetes, optional)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) (optional)
 
-### 2. Setup - (using [.python-version](./.python-version))
+### 2. Setup
 
 ```bash
 # Clone the repository
  git clone <this-repo-url>
  cd <repo>
 
-# Create a virtual environment
+# Create a virtual environment and install dev/test dependencies
  uv venv
-
-# Install dependencies for development and testing
  uv sync --all-groups --extra test
 ```
 
------
-
-### 3. Kubernetes Setup (Optional for tests and using K8s backend)
+### 3. Kubernetes Setup (Optional)
 
 This project requires a Kubernetes cluster for running tests and managing browser instances. We use K3s for local development and testing.
 
-#### Install K3s ([https://docs.k3s.io/quick-start](https://docs.k3s.io/quick-start))
+#### Install K3s (<https://docs.k3s.io/quick-start>)
 
 ```bash
 # Install K3s
@@ -41,137 +78,103 @@ curl -sfL https://get.k3s.io | sh -
 
 # Verify installation
 k3s --version
+
+# Start if not running
+sudo systemctl start k3s
 ```
 
 #### Create K3s Kubernetes Context (Optional)
 
-After installing K3s, you might want to create a dedicated `kubectl` context for it. This makes it easier to switch between different Kubernetes clusters if you have them.
-
-First, copy the K3s `kubeconfig` file to your standard `kubeconfig` directory:
+After installing K3s, you might want to create a dedicated `kubectl` context for it:
 
 ```bash
+# Copy K3s kubeconfig
 mkdir -p ~/.kube
 sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config-local-k3s
 sudo chown $USER:$USER ~/.kube/config-local-k3s
 chmod 600 ~/.kube/config-local-k3s
-```
 
-```bash
-# start if not running
-sudo systemctl start k3s
-```
-
-Next, you can add a new context named **k3s** to your `kubeconfig`:
-
-```bash
+# Create context
 KUBECONFIG=~/.kube/config-local-k3s \
 kubectl config set-context k3s-selenium-grid \
   --cluster=default \
   --user=default
 ```
 
-Now, the **k3s** context is available for you to use. You can switch to it anytime with `kubectl config use-context k3s` or specify it for individual commands using the `--context k3s` flag.
+#### Deploy Selenium Grid
 
-#### Deploy Selenium Grid using the Helm Chart
-
-Deploy using kubernetes context from [config.yaml](./config.yaml).
+Using kubernetes context name from [config.yaml](./config.yaml):
 
 ```bash
 uv run helm-selenium-grid deploy
 ```
 
-Deploy using a specific kubernetes context:
+For a given kubernetes context name:
 
 ```bash
 uv run helm-selenium-grid deploy --context k3s-selenium-grid
 ```
 
-Uninstall using kubernetes context from [config.yaml](./config.yaml).
+Uninstall:
 
 ```bash
-uv run helm-selenium-grid uninstall
-```
-
-Uninstall and delete the namespace from a given context:
-
-```bash
+uv run helm-selenium-grid uninstall --delete-namespace
 uv run helm-selenium-grid uninstall --context k3s-selenium-grid --delete-namespace
 ```
 
-> - **Note:** For more details, see the [README.md](scripts/helm/README.md).
-
------
+> See [scripts/helm/README.md](scripts/helm/README.md) for more details.
 
 ### 4. Start Server
 
-- **Development server with auto-reload:**
-
 ```bash
-# Uses fastapi-cli to run uvicorn.
 uv run fastapi dev src/app/main.py
 ```
 
-> - `uv run` uses the virtual environment to run the command, then you don't need to activate the enviroment to run the commands.
-> **Note:** activating the enviroment helps IDE's autocompletion and AI Agents.
-
------
+> `uv run` uses the virtual environment automatically. Activating the environment is optional but helps IDEs.
 
 ### 5. Running Tests
 
-You can run tests using pytest:
+```bash
+uv run pytest -m unit         # Unit tests
+uv run pytest -m integration  # Integration tests (needs Docker/K8s)
+uv run pytest -m e2e          # E2E tests (needs Docker/K8s)
+```
 
-- **Run unit tests:**
+#### 🧪 CI & Workflow Testing
 
-  ```bash
-  uv run pytest -m unit
-  ```
+- To test GitHub Actions workflows locally, see [`.github/README.md`](.github/README.md) for simple act usage instructions.
 
-> - The following test markers are available: `unit`, `integration`, `e2e`.
-> **Note:** Integration and e2e tests interact with real infrastructure (Docker/Kubernetes) and require these services to be running.
-> **ℹ️ For more details on test types and structure, see [`src/tests/README.md`](src/tests/README.md).**
+  > See [`src/tests/README.md`](src/tests/README.md) for test details.
 
 ### 6. Code Quality
 
-Format code:
-
 ```bash
-uv run ruff format .
+uv run ruff check .           # Lint
+uv run mypy .                 # Type check
+uv run ruff format .          # Format
 ```
 
-Lint code:
+This project uses pre-commit hooks configured in `.pre-commit-config.yaml` for automated code quality checks. If the pre-commit configuration is updated, run:
 
 ```bash
-uv run ruff check .
+uv run pre-commit install && uv run pre-commit autoupdate && uv run pre-commit run --all-files
 ```
 
-Type check:
-
-```bash
-uv run mypy .
-```
-
------
+> Installs hooks, updates them to latest versions, and runs all hooks on all files.
 
 ### 7. Clean Cache
 
 ```bash
-# Clear pycache files
-uvx pyclean .
-
-# Clear ruff cache
-uv run ruff clean
+uvx pyclean .                 # Clear pycache
+uv run ruff clean             # Clear ruff cache
 ```
 
------
+## 📦 Dependency Management
 
-## Dependency Management
-
-This project uses [uv](https://github.com/astral-sh/uv) for Python dependency management and installation. All contributors and AI Agents should use `uv` for installing and updating dependencies.
-
-- To install dependencies: `uv sync --all-groups --extra test` (install all including dev and test)
-- To add a dependency: `uv add <package>`
-- To add a dev dependency: `uv add <package> --dev`
-- To add a test dependency: `uv add <package> --optional test`
+- Install all dependencies: `uv sync --all-groups --extra test`
+- Add a dependency: `uv add <package>`
+- Add a dev dependency: `uv add <package> --dev`
+- Add a test dependency: `uv add <package> --optional test`
 
 ## 📄 License
 

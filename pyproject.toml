@@ -13,18 +13,18 @@ name = "mcp-selenium-grid"
 version = "0.1.0"
 description = "MCP Server for managing Selenium Grid instances"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 authors = [
     { name = "falamarcao" }
 ]
 dependencies = [
-    "fastapi[standard]>=0.111.0", # Web framework
+    "fastapi[standard]>=0.115.14", # Web framework
     "fastapi-mcp>=0.3.4", # MCP integration for FastAPI
-    "pydantic[email]>=2.7.3", # Data validation, email support
-    "pydantic-settings>=2.2.1", # Settings management (latest is 2.2.1)
+    "pydantic[email]>=2.11.7", # Data validation, email support
+    "pydantic-settings>=2.10.1", # Settings management (latest is 2.2.1)
     "docker>=7.1.0", # Docker API client
-    "kubernetes>=30.2.0", # Kubernetes API client
-    "prometheus-client>=0.20.0", # Prometheus metrics (latest is 0.20.0)
+    "kubernetes>=33.1.0", # Kubernetes API client3
+    "prometheus-client>=0.22.1", # Prometheus metrics (latest is 0.20.0)
     "prometheus-fastapi-instrumentator>=7.1.0", # FastAPI Prometheus integration
 ]
 
@@ -33,29 +33,23 @@ helm-selenium-grid = "scripts.helm.main:app"
 
 [tool.uv]
 dev-dependencies = [
-    "ruff>=0.4.4",
-    "mypy>=1.10.0",
-    "bandit>=1.7.8", # Security linter (latest is 1.7.8) # Dependency vulnerability checking
-    "safety>=3.2.0",
+    "ruff>=0.12.2",
+    "mypy>=1.16.1",
     "pre-commit>=4.2.0",
     "types-docker>=7.1.0.20250523",
     "types-pyyaml>=6.0.12.20250516",
-    "types-authlib>=1.5.0.20250516",
     "kubernetes-stubs>=22.6.0.post1",
-    "typer>=0.9.0",
+    "typer>=0.16.0",
 ]
 
 [project.optional-dependencies]
 test = [
-    "pytest>=8.2.1",
+    "pytest>=8.4.1",
     "pytest-mock>=3.14.1",
-    "pytest-asyncio>=0.23.6",
-    "pytest-cov>=5.0.0",
-    "pytest-xdist>=3.6.1", # Parallel test execution
-    "coverage[toml]>=7.5.1",
-    "docker>=7.1.0",
-    "kubernetes>=30.2.0",
-    "selenium>=4.21.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.8.0", # Parallel test execution
+    "coverage[toml]>=7.9.2",
 ]
 
 [build-system]
@@ -131,11 +125,3 @@ exclude_lines = [
 ]
 show_missing = true
 fail_under = 80
-
-[tool.bandit]
-exclude_dirs = ["tests"]
-skips = ["B101"]  # Skip assert statements in tests
-
-[tool.safety]
-ignore_cvss_severity_below = 7  # Only high and critical vulnerabilities
-ignore_unknown_severity = false

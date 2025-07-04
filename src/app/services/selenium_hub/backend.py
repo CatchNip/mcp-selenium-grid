@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, List
 
@@ -54,7 +55,5 @@ class HubBackend(ABC):
         """
         Delete multiple browser containers by their IDs in parallel. Returns a list of successfully deleted IDs.
         """
-        import asyncio
-
         results = await asyncio.gather(*(self.delete_browser(bid) for bid in browser_ids))
         return [bid for bid, ok in zip(browser_ids, results) if ok]

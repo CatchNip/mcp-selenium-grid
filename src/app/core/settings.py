@@ -10,7 +10,7 @@ from typing import (
     Type,
 )
 
-from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -19,7 +19,6 @@ from pydantic_settings import (
 )
 from typing_extensions import override
 
-from app.core.env_helpers import getenv_as_bool
 from app.core.models import BrowserConfig, ContainerResources, DeploymentMode
 
 
@@ -30,9 +29,10 @@ class Settings(BaseSettings):
         yaml_file="config.yaml",
         yaml_file_encoding="utf-8",
         alias_generator=lambda name: name.lower(),
-        case_sensitive=True,
+        case_sensitive=False,
         nested_model_default_partial_update=True,
         extra="ignore",
+        env_prefix="",
     )
 
     # API Settings
@@ -50,15 +50,15 @@ class Settings(BaseSettings):
     # Selenium Settings
     SELENIUM_HUB_PORT: int = Field(default=4444, frozen=True)
 
-    @model_validator(mode="after")
-    def _check_selenium_hub_port_is_default(self) -> "Settings":
-        """Ensure SELENIUM_HUB_PORT remains the default value."""
+    @field_validator("SELENIUM_HUB_PORT")
+    @classmethod
+    def _check_selenium_hub_port_is_default(cls, v: int) -> int:
         default_port = 4444
-        if self.SELENIUM_HUB_PORT != default_port:
+        if v != default_port:
             raise ValueError(
                 f"SELENIUM_HUB_PORT cannot be set. Port {default_port} is hardcoded in the container image."
             )
-        return self
+        return default_port
 
     MAX_BROWSER_INSTANCES: int = Field(default=1)
     SE_NODE_MAX_SESSIONS: int = Field(default=1)
@@ -90,14 +90,18 @@ class Settings(BaseSettings):
         return "1" if v else "0"
 
     # Deployment Settings
-    DEPLOYMENT_MODE: DeploymentMode = Field(
-        default=DeploymentMode.KUBERNETES
-        if getenv_as_bool("IS_RUNNING_IN_DOCKER")
-        else DeploymentMode.DOCKER
-    )
+    DEPLOYMENT_MODE: DeploymentMode = Field(default=DeploymentMode.DOCKER)
 
     # Kubernetes Settings
     K8S_KUBECONFIG: Optional[Path] = Field(default=None)
+
+    @field_validator("K8S_KUBECONFIG", mode="before")
+    @classmethod
+    def expand_path(cls, v: Optional[str | Path]) -> Optional[Path]:
+        if isinstance(v, str):
+            return Path(v).expanduser()
+        return v
+
     K8S_CONTEXT: Optional[str] = Field(default=None)
     K8S_NAMESPACE: str = Field(default="selenium-grid")
     K8S_SELENIUM_GRID_SERVICE_NAME: str = Field(default="selenium-grid")

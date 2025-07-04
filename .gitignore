@@ -48,7 +48,7 @@ docker-compose.override.yml
 *.kube/
 
 # Hatch/uv
-*.lock
+# *.lock
 
 # Misc
 *.sqlite3

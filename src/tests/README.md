@@ -7,7 +7,7 @@ This directory contains all tests for the MCP Selenium Grid Server. The test sui
 ```
 tests/
 ├── unit/           # Unit tests (fast, isolated, all dependencies mocked)
-├── integration/    # Integration tests (real app logic, external services mocked)
+├── integration/    # Integration tests (real app logic, external services not mocked)
 ├── e2e/            # End-to-end tests (real infrastructure, full workflows)
 └── conftest.py     # Shared fixtures and configuration
 ```
@@ -29,8 +29,7 @@ uv run pytest -m unit
 ### Integration Tests
 
 - Test how components work together (e.g., API endpoints, service interactions).
-- External services (Docker, Kubernetes) are mocked.
-- External services (Docker, Kubernetes) are not mocked at this level; these tests interact with the real infrastructure or test doubles that simulate it.
+- External services (Docker, Kubernetes) are not mocked; these tests interact with the real infrastructure or test doubles that simulate it.
 - Fast and reliable.
 
 **Run integration tests:**

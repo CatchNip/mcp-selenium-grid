@@ -111,13 +111,13 @@ class KubernetesHubBackend(HubBackend):
                 # If not in cluster, try to load from kubeconfig
                 config_file_path: Optional[str] = None
                 if self.settings.K8S_KUBECONFIG:
-                    config_file_path = str(self.settings.K8S_KUBECONFIG.expanduser())
+                    config_file_path = str(self.settings.K8S_KUBECONFIG)
 
                 load_kube_config(config_file=config_file_path, context=self.settings.K8S_CONTEXT)
 
         except Exception as e:
             logging.exception(f"An unexpected error occurred during K8s config loading: {e}")
-            raise RuntimeError("Unexpected error during Kubernetes configuration") from e
+            raise e
 
     async def _sleep(self, attempt: int) -> None:
         """

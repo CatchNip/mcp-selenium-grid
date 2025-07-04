@@ -63,7 +63,7 @@ async def create_browsers(
                 app_state.browsers_instances[browser.id] = browser
     except Exception as e:
         # Log the error and current browser configs for diagnostics
-        import logging
+        import logging  # noqa: PLC0415
 
         logging.error(
             f"Exception in create_browsers: {e}. BROWSER_CONFIGS: {settings.BROWSER_CONFIGS}"

@@ -1,0 +1,62 @@
+# WARNING: This workflow runs integration and end-to-end (E2E) tests, which require significant resources (Docker, Kubernetes, browsers, etc.).
+# Running this workflow may consume a large amount of GitHub Actions minutes and may quickly exhaust your free tier or incur costs.
+# It is recommended to run this workflow only when necessary (e.g., before releases or major merges).
+# Or just run locally :)
+
+name: Manual Integration & E2E Tests (High Resource Usage)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  integration-e2e-tests:
+    runs-on: ubuntu-latest
+    env:
+      UV_SYSTEM_PYTHON: 1
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - name: Set up KinD cluster
+        uses: helm/kind-action@v1
+        with:
+          version: v0.26.0
+          cluster_name: integration-e2e-tests
+      - name: Install yq (yaml parser)
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+      - name: Rename KinD context
+        run: |
+          new_context=$(yq '.k8s_context' config.yaml)
+          kubectl config rename-context kind-integration-e2e-tests "$new_context"
+      - name: Export K8S_KUBECONFIG
+        run: |
+          if [ "$EUID" -eq 0 ]; then
+            kube_config="/root/.kube/config"
+          else
+            kube_config="$HOME/.kube/config"
+          fi
+          echo "K8S_KUBECONFIG=$kube_config" >> $GITHUB_ENV
+      - name: Install Helm CLI
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - name: Install dependencies
+        run: uv sync --locked --all-groups --extra test
+      - name: Deploy Selenium Grid to KinD
+        run: uv run helm-selenium-grid deploy
+        continue-on-error: true
+      - name: Extract K8S_NAMESPACE from config.yaml
+        run: |
+          namespace=$(yq '.k8s_namespace' config.yaml)
+          echo "K8S_NAMESPACE=$namespace" >> $GITHUB_ENV
+      - name: Run tests
+        run: uv run pytest -m "integration or e2e" --cov-fail-under=70

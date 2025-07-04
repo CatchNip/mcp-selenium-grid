@@ -27,7 +27,7 @@ def resolve_namespace_context_and_kubeconfig(
         resolved_kubeconfig_str = str(cli_kubeconfig_arg.expanduser())
     elif settings.K8S_KUBECONFIG:
         # settings.K8S_KUBECONFIG is a Path from the config file.
-        resolved_kubeconfig_str = str(settings.K8S_KUBECONFIG.expanduser())
+        resolved_kubeconfig_str = str(settings.K8S_KUBECONFIG)
 
     return namespace_obj, effective_kube_context, resolved_kubeconfig_str
 

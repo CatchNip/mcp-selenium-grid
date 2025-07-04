@@ -7,65 +7,22 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    uses: ./.github/workflows/build-python-package.yml
-    with:
-      python-version: 3.13
-      publish: 'false'
-
-  code-quality:
+  tests:
     runs-on: ubuntu-latest
-    needs: build
+    env:
+      UV_SYSTEM_PYTHON: 1
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Read Python version
-        id: read_python_version
-        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
-      - name: Setup Python and uv
-        uses: ./.github/actions/setup-python-uv
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ steps.read_python_version.outputs.python_version }}
-          install-dev: 'true'
-      - name: Ruff
-        run: uv pip install ruff && ruff src/ tests/
-      - name: Black
-        run: uv pip install black && black --check src/ tests/
-      - name: Mypy
-        run: uv pip install mypy && mypy src/
-
-  devsecops:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Read Python version
-        id: read_python_version
-        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
-      - name: Setup Python and uv
-        uses: ./.github/actions/setup-python-uv
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ steps.read_python_version.outputs.python_version }}
-          install-dev: 'true'
-      - name: Bandit (code security)
-        run: uv pip install bandit && bandit -r src/ -x tests/
-      - name: Safety (dependency vulnerabilities)
-        run: uv pip install safety && safety check --full-report
-
-  test:
-    runs-on: ubuntu-latest
-    needs: [build, code-quality, devsecops]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Read Python version
-        id: read_python_version
-        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
-      - name: Setup Python and uv
-        uses: ./.github/actions/setup-python-uv
-        with:
-          python-version: ${{ steps.read_python_version.outputs.python_version }}
-          install-dev: 'true'
-      - name: Run tests (pytest)
-        run: uv pip install pytest pytest-cov && pytest
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - run: uv sync --locked --all-groups --extra test
+      - run: uv run mypy .
+      - run: uv run ruff check .
+      - run: uv run pytest -m unit --cov-fail-under=50

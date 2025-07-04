@@ -96,7 +96,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         if sensitive_values:
             # Create a temporary values file for sensitive data
             with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as values_file:
-                import yaml
+                import yaml  # noqa: PLC0415
 
                 yaml.dump(sensitive_values, values_file)
                 values_file_path = values_file.name

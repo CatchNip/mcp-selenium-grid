@@ -16,22 +16,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      UV_SYSTEM_PYTHON: 1
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Read Python version
-        id: read_python_version
-        run: echo "python_version=$(cat .python-version)" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.python-version != '' && inputs.python-version || steps.read_python_version.outputs.python_version }}
+          python-version-file: .python-version
+
       - name: Install uv
-        run: pip install uv
-      - name: Install build dependencies
-        run: uv pip install hatchling
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
       - name: Build package
-        run: |
-          uv pip install .
-          hatchling build
+        run: uv build
       # Optionally publish (not implemented here)

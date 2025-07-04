@@ -262,8 +262,8 @@ def selenium_hub_basic_auth_headers() -> BasicAuth:
 @pytest.fixture(scope="session", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
 def client(request: FixtureRequest) -> Generator[TestClient, None, None]:
     """Create a test client for the FastAPI app with dependency override for verify_token."""
-    from app.main import create_application
-    from fastapi.testclient import TestClient
+    from app.main import create_application  # noqa: PLC0415
+    from fastapi.testclient import TestClient  # noqa: PLC0415
 
     app = create_application()
 
