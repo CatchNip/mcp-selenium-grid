@@ -1,0 +1,20 @@
+name: Get Version from pyproject.toml
+
+description: Extracts the version from pyproject.toml and sets it as an output.
+
+inputs: {}
+
+outputs:
+  version:
+    description: "The version from pyproject.toml"
+    value: ${{ steps.extract-version.outputs.version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Extract version from pyproject.toml
+      id: extract-version
+      shell: bash
+      run: |
+        VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/version *= *"\(.*\)"/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT 

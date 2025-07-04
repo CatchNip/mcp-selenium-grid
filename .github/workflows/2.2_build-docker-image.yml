@@ -1,0 +1,69 @@
+name: Build Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: 'Docker image name (including tag)'
+        required: false
+        default: mcp-selenium-grid:latest
+        type: string
+      context:
+        description: 'Build context path'
+        required: false
+        default: .
+        type: string
+      dockerfile:
+        description: 'Dockerfile path'
+        required: false
+        default: Dockerfile
+        type: string
+      push:
+        description: 'Whether to push the image (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      extra-tag:
+        description: 'An extra tag to apply to the image (e.g., latest)'
+        required: false
+        default: ''
+        type: string
+    outputs:
+      version:
+        description: 'Extracted version from pyproject.toml'
+        value: ${{ jobs.build-docker.outputs.version }}
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - uses: ./.github/actions/get-version
+        id: get_version
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+      - name: Build Docker image
+        run: |
+          docker build --cache-from=type=local,src=/tmp/.buildx-cache --cache-to=type=local,dest=/tmp/.buildx-cache -t ${{ inputs.image-name }}${{ inputs.extra-tag && format(' -t {0}', inputs.extra-tag) || '' }} -f ${{ inputs.dockerfile }} ${{ inputs.context }}
+      - name: Log in to GitHub Container Registry
+        if: ${{ inputs.push == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push Docker image
+        if: ${{ inputs.push == 'true' }}
+        run: |
+          docker push ${{ inputs.image-name }}
+          if [ ! -z "${{ inputs.extra-tag }}" ]; then
+            docker push ${{ inputs.extra-tag }}
+          fi
