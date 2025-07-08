@@ -109,9 +109,8 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
                 "--install",
                 str(release),
                 str(chart.path),
-                "--namespace",
-                str(namespace_obj),
-                "--create-namespace",
+                # Do NOT include --namespace or --create-namespace if the chart manages the Namespace resource
+                # Namespace will be created by the chart using the value passed via --set namespace=...
             ]
 
             # Add sensitive values if any

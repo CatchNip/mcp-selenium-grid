@@ -12,7 +12,16 @@ on:
 # It does not depend on CI passing, but it is recommended to only run after CI passes.
 
 jobs:
+  params:
+    runs-on: ubuntu-latest
+    outputs:
+      github-repository-lowercase: ${{ steps.lower.outputs.github_repository_lowercase }}
+    steps:
+      - id: lower
+        run: echo "github_repository_lowercase=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+
   build-python-package:
+    needs: params
     uses: ./.github/workflows/2.1_build-python-package.yml
     with:
       publish: ${{ github.event.inputs.publish }}
@@ -20,22 +29,22 @@ jobs:
     secrets: inherit
 
   build-docker-image:
+    needs: [params, build-python-package]
     uses: ./.github/workflows/2.2_build-docker-image.yml
     with:
-      image-name: ghcr.io/${{ github.repository }}:${{ needs.build-python-package.outputs.version }}
-      extra-tag: ghcr.io/${{ github.repository }}:latest
+      image-name: ghcr.io/${{ needs.params.outputs.github-repository-lowercase }}:${{ needs.build-python-package.outputs.version }}
+      extra-tag: ghcr.io/${{ needs.params.outputs.github-repository-lowercase }}:latest
       context: .
-      dockerfile: src/deployment/docker/Dockerfile
+      dockerfile: Dockerfile
       push: ${{ github.event.inputs.publish }}
     secrets: inherit
-    needs: build-python-package
 
   create-github-release:
+    needs: [params, build-python-package, build-docker-image]
     if: ${{ github.event.inputs.publish == 'true' && needs.build-python-package.result == 'success' && needs.build-docker-image.result == 'success' }}
     uses: ./.github/workflows/2.3_create-github-release.yml
     with:
       version: ${{ needs.build-python-package.outputs.version }}
-      docker-image: ghcr.io/${{ github.repository }}:${{ needs.build-python-package.outputs.version }}
+      docker-image: ghcr.io/${{ needs.params.outputs.github-repository-lowercase }}:${{ needs.build-docker-image.outputs.version }}
       python-package: ${{ needs.build-python-package.outputs.version }}
     secrets: inherit
-    needs: [build-python-package, build-docker-image]

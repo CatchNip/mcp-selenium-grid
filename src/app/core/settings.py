@@ -19,6 +19,7 @@ from pydantic_settings import (
 )
 from typing_extensions import override
 
+from app.common import getenv
 from app.core.models import BrowserConfig, ContainerResources, DeploymentMode
 
 
@@ -91,6 +92,16 @@ class Settings(BaseSettings):
 
     # Deployment Settings
     DEPLOYMENT_MODE: DeploymentMode = Field(default=DeploymentMode.DOCKER)
+
+    @field_validator("DEPLOYMENT_MODE", mode="before")
+    @classmethod
+    def _set_deployment_mode(
+        cls, deployment_mode: DeploymentMode, info: ValidationInfo
+    ) -> DeploymentMode:
+        """Set deployment mode based on IS_RUNNING_IN_DOCKER environment variable."""
+        if getenv("IS_RUNNING_IN_DOCKER").as_bool():
+            return DeploymentMode.KUBERNETES
+        return deployment_mode
 
     # Kubernetes Settings
     K8S_KUBECONFIG: Optional[Path] = Field(default=None)

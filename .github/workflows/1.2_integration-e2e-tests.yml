@@ -53,7 +53,6 @@ jobs:
         run: uv sync --locked --all-groups --extra test
       - name: Deploy Selenium Grid to KinD
         run: uv run helm-selenium-grid deploy
-        continue-on-error: true
       - name: Extract K8S_NAMESPACE from config.yaml
         run: |
           namespace=$(yq '.k8s_namespace' config.yaml)

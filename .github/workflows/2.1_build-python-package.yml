@@ -31,7 +31,8 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/get-version
+      - name: Get Version from pyproject.toml
+        uses: ./.github/actions/get-version
         id: get_version
       - name: Set up Python
         uses: actions/setup-python@v5

@@ -13,6 +13,7 @@ name = "mcp-selenium-grid"
 version = "0.1.0"
 description = "MCP Server for managing Selenium Grid instances"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [
     { name = "falamarcao" }
