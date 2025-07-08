@@ -17,8 +17,8 @@ from app.dependencies import get_settings, verify_token
 from app.models import HealthCheckResponse, HealthStatus, HubStatusResponse
 from app.routers.browsers import router as browsers_router
 from app.routers.selenium_proxy import router as selenium_proxy_router
+from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.manager import SeleniumHubManager
-from app.services.selenium_hub.selenium_hub import SeleniumHub
 
 
 def create_application() -> FastAPI:

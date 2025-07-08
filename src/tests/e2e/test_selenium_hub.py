@@ -6,7 +6,7 @@ import httpx
 import pytest
 from app.core.models import DeploymentMode
 from app.core.settings import Settings
-from app.services.selenium_hub.selenium_hub import SeleniumHub
+from app.services.selenium_hub import SeleniumHub
 
 
 @pytest.mark.e2e
