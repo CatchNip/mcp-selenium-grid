@@ -60,3 +60,6 @@ class SeleniumHubManager:
         Delete multiple browser containers by their IDs in parallel. Returns a list of successfully deleted IDs.
         """
         return await self.backend.delete_browsers(browser_ids)
+
+    async def check_hub_health(self, username: str, password: str) -> bool:
+        return await self.backend.check_hub_health(username, password)

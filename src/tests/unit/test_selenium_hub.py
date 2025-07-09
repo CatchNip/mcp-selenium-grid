@@ -41,6 +41,7 @@ def generate_selenium_fixture(
     async def _fixture(
         request: SubRequest, mocker: MockerFixture
     ) -> AsyncGenerator[SeleniumHub, None]:
+        # Common backend method mocks
         ensure_hub_running_mock = mocker.AsyncMock(return_value=True)
 
         async def generate_browsers_id(count: int, *args: Any, **kwargs: Any) -> List[str]:
@@ -55,13 +56,14 @@ def generate_selenium_fixture(
         mocker.patch.object(backend_cls, "create_browsers", create_browsers_mock)
         mocker.patch.object(backend_cls, "delete_browsers", delete_browsers_mock)
 
+        # K8s-specific: patch classes and properties only if needed
         if backend_cls is KubernetesHubBackend:
-            mocker.patch.object(backend_cls, "_load_k8s_config", return_value=None)
+            mocker.patch("app.services.selenium_hub.k8s_backend.KubernetesConfigManager")
 
         settings = request.getfixturevalue(settings_arg_name)
-
         reset_selenium_hub_singleton()
         hub = SeleniumHub(settings)
+
         yield hub
         reset_selenium_hub_singleton()
 

@@ -1,11 +1,7 @@
 """Selenium Hub service for managing browser instances."""
 
 import asyncio
-import logging
 from typing import Optional
-from urllib.parse import urljoin
-
-import httpx
 
 from app.core.settings import Settings
 from app.services.metrics import track_browser_metrics, track_hub_metrics
@@ -107,23 +103,9 @@ class SeleniumHub:
         Returns:
             bool: True if the hub responds with 200 OK, False otherwise.
         """
-        url = urljoin(self._manager.URL, "status")
-        auth = httpx.BasicAuth(
-            self.settings.SELENIUM_HUB_USER.get_secret_value(),
-            self.settings.SELENIUM_HUB_PASSWORD.get_secret_value(),
-        )
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(2.0), auth=auth) as client:
-                response = await client.get(url)
-                if response.status_code == httpx.codes.OK:
-                    return True
-                else:
-                    logging.error(
-                        f"Hub health check failed with status code: {response.status_code}"
-                    )
-                    return False
-        except httpx.RequestError:
-            return False
+        username = self.settings.SELENIUM_HUB_USER.get_secret_value()
+        password = self.settings.SELENIUM_HUB_PASSWORD.get_secret_value()
+        return await self._manager.check_hub_health(username, password)
 
     @track_hub_metrics()
     async def ensure_hub_running(self) -> bool:

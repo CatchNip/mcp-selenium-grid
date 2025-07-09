@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, override
 
 import docker
 from docker.errors import APIError, NotFound
@@ -16,6 +16,7 @@ class DockerHubBackend(HubBackend):
         self.settings = settings
 
     @property
+    @override
     def URL(self) -> str:
         """Base URL for the Docker Selenium Hub."""
         return f"http://localhost:{self.settings.SELENIUM_HUB_PORT}"
@@ -48,11 +49,13 @@ class DockerHubBackend(HubBackend):
         except Exception as e:
             logging.exception(f"Unexpected error removing network {network_name}: {e}")
 
+    @override
     def cleanup_hub(self) -> None:
         """Clean up Selenium Hub container and network."""
         self._remove_container(self.HUB_NAME)
         self._remove_network(self.NETWORK_NAME)
 
+    @override
     def cleanup_browsers(self) -> None:
         """Clean up all browser containers."""
         try:
@@ -65,6 +68,7 @@ class DockerHubBackend(HubBackend):
         except Exception as e:
             logging.exception(f"Unexpected error cleaning up browser containers: {e}")
 
+    @override
     def cleanup(self) -> None:
         """Clean up all resources by first cleaning up browsers then the hub."""
         super().cleanup()
@@ -132,6 +136,7 @@ class DockerHubBackend(HubBackend):
 
         return True
 
+    @override
     async def create_browsers(
         self, count: int, browser_type: str, browser_configs: Dict[str, BrowserConfig]
     ) -> List[str]:
@@ -190,6 +195,7 @@ class DockerHubBackend(HubBackend):
 
         return browser_ids
 
+    @override
     async def delete_browser(self, browser_id: str) -> bool:
         """Delete a specific browser instance by container ID (Docker). Returns True if deleted, False otherwise."""
         try:

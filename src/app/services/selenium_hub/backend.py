@@ -1,6 +1,10 @@
 import asyncio
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, List
+from urllib.parse import urljoin
+
+import httpx
 
 from app.core.models import BrowserConfig
 
@@ -57,3 +61,21 @@ class HubBackend(ABC):
         """
         results = await asyncio.gather(*(self.delete_browser(bid) for bid in browser_ids))
         return [bid for bid, ok in zip(browser_ids, results) if ok]
+
+    async def check_hub_health(self, username: str, password: str) -> bool:
+        """
+        Check if the Selenium Hub is healthy and reachable by polling the status endpoint.
+        Returns True if the hub responds with 200 OK, False otherwise.
+        """
+        url = urljoin(self.URL, "status")
+        logging.info(f"KubernetesHubBackend: Checking health for {url}")
+        auth = httpx.BasicAuth(username, password)
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(2.0), auth=auth) as client:
+                response = await client.get(url)
+                if response.status_code == httpx.codes.OK:
+                    return True
+                else:
+                    return False
+        except httpx.RequestError:
+            return False

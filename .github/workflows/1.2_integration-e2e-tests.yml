@@ -53,9 +53,7 @@ jobs:
         run: uv sync --locked --all-groups --extra test
       - name: Deploy Selenium Grid to KinD
         run: uv run helm-selenium-grid deploy
-      - name: Extract K8S_NAMESPACE from config.yaml
-        run: |
-          namespace=$(yq '.k8s_namespace' config.yaml)
-          echo "K8S_NAMESPACE=$namespace" >> $GITHUB_ENV
-      - name: Run tests
-        run: uv run pytest -m "integration or e2e" --cov-fail-under=70
+      - name: Run tests with coverage
+        run: uv run coverage run -m pytest -m "integration or e2e"
+      - name: Run coverage report
+        run: uv run coverage report --fail-under=70

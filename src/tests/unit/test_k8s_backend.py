@@ -2,12 +2,14 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.core.models import BrowserConfig, ContainerResources
-from app.services.selenium_hub.k8s_backend import KubernetesHubBackend
+from app.services.selenium_hub.k8s_backend import KubernetesHubBackend, ResourceType
 from kubernetes.client.exceptions import ApiException
 from pytest_mock import MockerFixture
 
 # NOTE: All tests must use the k8s_backend fixture to ensure proper mocking of Kubernetes API calls.
 # The fixture attaches set_namespace_exists to the backend for namespace mocking. Do not instantiate KubernetesHubBackend directly in tests.
+
+DELETE_RESOURCE_CALLS = 2
 
 
 # Unit tests for cleanup method
@@ -19,14 +21,21 @@ def test_cleanup_deletes_resources(
     """Test that cleanup deletes all expected Kubernetes resources."""
     backend = k8s_backend
     mock_delete_pods = mocker.patch.object(backend.k8s_core, "delete_collection_namespaced_pod")
-    mock_delete_deploy = mocker.patch.object(backend.k8s_apps, "delete_namespaced_deployment")
-    mock_delete_svc = mocker.patch.object(backend.k8s_core, "delete_namespaced_service")
+    mock_delete_deploy = mocker.patch.object(backend.resource_manager, "delete_resource")
+
     backend.cleanup()
+
     mock_delete_pods.assert_called_once_with(
         namespace="test-namespace", label_selector="app=selenium-node"
     )
-    mock_delete_deploy.assert_called_once_with(name="test-service-name", namespace="test-namespace")
-    mock_delete_svc.assert_called_once_with(name="test-service-name", namespace="test-namespace")
+    # Check that _delete_resource was called twice (for deployment and service)
+    assert mock_delete_deploy.call_count == DELETE_RESOURCE_CALLS
+    # Check the calls were made with correct parameters
+    calls = mock_delete_deploy.call_args_list
+    assert calls[0][0][0] == ResourceType.DEPLOYMENT
+    assert calls[0][0][1] == "test-service-name"
+    assert calls[1][0][0] == ResourceType.SERVICE
+    assert calls[1][0][1] == "test-service-name"
 
 
 @pytest.mark.unit
@@ -36,22 +45,20 @@ def test_cleanup_resources_not_found(
 ) -> None:
     """Test that cleanup does not raise errors when resources are not found."""
     backend = k8s_backend
-    # mocker.patch.object(backend, "_wait_for_resource_deletion")
     mock_delete_pods = mocker.patch.object(
         backend.k8s_core, "delete_collection_namespaced_pod", side_effect=ApiException(status=404)
     )
     mock_delete_deploy = mocker.patch.object(
-        backend.k8s_apps, "delete_namespaced_deployment", side_effect=ApiException(status=404)
+        backend.resource_manager, "delete_resource", side_effect=ApiException(status=404)
     )
-    mock_delete_svc = mocker.patch.object(
-        backend.k8s_core, "delete_namespaced_service", side_effect=ApiException(status=404)
-    )
+
     backend.cleanup()
+
     mock_delete_pods.assert_called_once_with(
         namespace="test-namespace", label_selector="app=selenium-node"
     )
-    mock_delete_deploy.assert_called_once_with(name="test-service-name", namespace="test-namespace")
-    mock_delete_svc.assert_called_once_with(name="test-service-name", namespace="test-namespace")
+    # Check that _delete_resource was called twice (for deployment and service)
+    assert mock_delete_deploy.call_count == DELETE_RESOURCE_CALLS
 
 
 # Unit tests for ensure_hub_running method
@@ -63,7 +70,13 @@ async def test_ensure_hub_running_resources_exist(
 ) -> None:
     """Test that ensure_hub_running returns True when resources exist."""
     backend = k8s_backend
-    # mocker.patch.object(backend.k8s_core, "read_namespace", return_value=MagicMock())
+    # Mock the resource manager to return successfully
+    mocker.patch.object(backend.resource_manager, "_read_resource", return_value=MagicMock())
+    mocker.patch.object(backend, "_ensure_namespace_exists")
+    mocker.patch.object(backend, "_ensure_deployment_exists")
+    mocker.patch.object(backend, "_wait_for_hub_pod_ready")
+    mocker.patch.object(backend, "_ensure_service_exists")
+
     result = await backend.ensure_hub_running()
     assert result is True
 
@@ -76,7 +89,14 @@ async def test_ensure_hub_running_creates_resources(
 ) -> None:
     """Test that ensure_hub_running returns True when resources are created."""
     backend = k8s_backend
+    # Mock namespace creation
     mocker.patch.object(backend.k8s_core, "read_namespace", side_effect=ApiException(status=404))
+    mocker.patch.object(backend.k8s_core, "create_namespace", return_value=MagicMock())
+    # Mock resource creation
+    mocker.patch.object(backend, "_ensure_deployment_exists")
+    mocker.patch.object(backend, "_wait_for_hub_pod_ready")
+    mocker.patch.object(backend, "_ensure_service_exists")
+
     result = await backend.ensure_hub_running()
     assert result is True
 
@@ -89,8 +109,9 @@ async def test_ensure_hub_running_api_error(
 ) -> None:
     """Test that ensure_hub_running returns False on error."""
     backend = k8s_backend
-    # Patch only the deployment helper (first in the chain) to raise. ; Any exception will do
-    mocker.patch.object(backend, "_ensure_deployment_exists", side_effect=Exception("fail"))
+    # Patch the resource manager to raise an exception
+    mocker.patch.object(backend.resource_manager, "read_resource", side_effect=Exception("fail"))
+
     result = await backend.ensure_hub_running()
     assert result is False
 
@@ -113,6 +134,10 @@ async def test_create_browsers_success(
     }
     count = 2
     browser_type = "chrome"
+
+    # Mock successful pod creation
+    mocker.patch.object(backend.k8s_core, "create_namespaced_pod", return_value=MagicMock())
+
     browser_ids = await backend.create_browsers(count, browser_type, browser_configs)
     assert isinstance(browser_ids, list)
     assert len(browser_ids) == count
@@ -189,3 +214,30 @@ async def test_delete_browsers_empty(
     backend = k8s_backend
     result = await backend.delete_browsers([])
     assert result == []
+
+
+# Unit tests for delete_browser method
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_delete_browser_success(
+    k8s_backend: KubernetesHubBackend, mocker: MockerFixture
+) -> None:
+    """Test that delete_browser successfully deletes a browser."""
+    backend = k8s_backend
+    mocker.patch.object(backend.resource_manager, "_delete_resource")
+
+    result = await backend.delete_browser("test-browser-id")
+    assert result is True
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_delete_browser_failure(
+    k8s_backend: KubernetesHubBackend, mocker: MockerFixture
+) -> None:
+    """Test that delete_browser returns False on failure."""
+    backend = k8s_backend
+    mocker.patch.object(backend.resource_manager, "delete_resource", side_effect=Exception("fail"))
+
+    result = await backend.delete_browser("test-browser-id")
+    assert result is False

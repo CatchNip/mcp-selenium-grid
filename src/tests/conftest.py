@@ -1,7 +1,7 @@
 """Pytest configuration file."""
 
 from typing import Any, Dict, Generator, Optional, Tuple
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
 import app.core.settings as core_settings
 import pytest
@@ -169,6 +169,7 @@ def mock_k8s_apis(mocker: MockerFixture) -> Tuple[MagicMock, MagicMock]:
         "create_namespaced_service",
         "delete_namespaced_service",
         "read_namespaced_service",
+        "delete_collection_namespaced_pod",
     ]
     for m in core_methods:
         setattr(core_mock, m, MagicMock())
@@ -216,15 +217,29 @@ def k8s_backend(
 ) -> Generator[KubernetesHubBackend, None, None]:
     """Fixture that yields a KubernetesHubBackend instance with mocked K8s clients."""
 
-    mocker.patch.object(KubernetesHubBackend, "_load_k8s_config", return_value=None)
+    # Patch K8s-related classes at the class level
+    mocker.patch("app.services.selenium_hub.k8s_backend.KubernetesConfigManager")
+    mocker.patch("app.services.selenium_hub.k8s_backend.KubernetesUrlResolver")
+    mocker.patch("app.services.selenium_hub.k8s_backend.KubernetesResourceManager")
+
+    # Patch methods
+    mocker.patch.object(
+        KubernetesHubBackend, "URL", new_callable=PropertyMock, return_value="http://mocked-url"
+    )
+    mocker.patch.object(
+        KubernetesHubBackend, "check_hub_health", new_callable=mocker.AsyncMock, return_value=True
+    )
 
     core, apps = mock_k8s_apis
-    backend = KubernetesHubBackend(k8s_hub_settings)
 
+    backend = KubernetesHubBackend(k8s_hub_settings)
     backend.k8s_core = core
     backend.k8s_apps = apps
 
-    # Patch docker.from_env everywhere in k8s fixture too, to prevent accidental Docker usage
+    # Patch as AsyncMock so it can be awaited
+    mocker.patch.object(backend.resource_manager, "sleep", new_callable=mocker.AsyncMock)
+
+    # Patch docker.from_env to prevent accidental Docker usage
     mocker.patch("docker.from_env", return_value=mock_docker_client)
     mocker.patch(
         "app.services.selenium_hub.docker_backend.docker.from_env", return_value=mock_docker_client
