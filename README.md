@@ -36,7 +36,39 @@ To use the MCP Selenium Grid with MCP-compatible clients (like Cursor, VS Code, 
       "command": "uv",
       "args": ["run", "fastapi", "run", "src/app/main.py"],
       "env": {
-        "API_TOKEN": "your-api-token-here"
+        "API_TOKEN": "CHANGE_ME",
+        "DEPLOYMENT_MODE": "docker",
+        "SELENIUM_HUB_USERNAME": "USER",
+        "SELENIUM_HUB_PASSWORD": "CHANGE_ME",
+        "SELENIUM_HUB_VNC_PASSWORD": "CHANGE_ME",
+        "SELENIUM_HUB_VNC_VIEW_ONLY": false,
+        "MAX_BROWSER_INSTANCES": 10,
+        "SE_NODE_MAX_SESSIONS": 1,
+      }
+    }
+  }
+}
+```
+
+```json
+{
+  "mcpServers": {
+    "selenium-grid": {
+      "command": "uv",
+      "args": ["run", "fastapi", "run", "src/app/main.py"],
+      "env": {
+        "API_TOKEN": "CHANGE_ME",
+        "DEPLOYMENT_MODE": "kubernetes",
+        "SELENIUM_HUB_USERNAME": "USER",
+        "SELENIUM_HUB_PASSWORD": "CHANGE_ME",
+        "SELENIUM_HUB_VNC_PASSWORD": "CHANGE_ME",
+        "SELENIUM_HUB_VNC_VIEW_ONLY": false,
+        "MAX_BROWSER_INSTANCES": 10,
+        "SE_NODE_MAX_SESSIONS": 1,
+        "K8S_KUBECONFIG": "~/.kube/config-local-k3s",
+        "K8S_CONTEXT": "k3s-selenium-grid",
+        "K8S_NAMESPACE": "selenium-grid-dev",
+        "K8S_SELENIUM_GRID_SERVICE_NAME": "selenium-grid",
       }
     }
   }
@@ -62,7 +94,6 @@ Once the server is running, you can access the interactive API documentation at:
  cd <repo>
 
 # Create a virtual environment and install dev/test dependencies
- uv venv
  uv sync --all-groups --extra test
 ```
 

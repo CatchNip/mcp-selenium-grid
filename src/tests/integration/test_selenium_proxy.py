@@ -8,7 +8,10 @@ from starlette.testclient import TestClient
 
 
 @pytest.mark.integration
-def test_proxy_requires_auth(client: TestClient) -> None:
+@pytest.mark.parametrize(
+    "endpoint", [f"{SELENIUM_HUB_PREFIX}/status", f"{SELENIUM_HUB_PREFIX}/wd/hub/status"]
+)
+def test_proxy_requires_auth(client: TestClient, endpoint: str) -> None:
     """
     Test that the proxy requires authentication and returns 401 if not provided.
 
@@ -18,7 +21,7 @@ def test_proxy_requires_auth(client: TestClient) -> None:
     Expected:
         A request to {SELENIUM_HUB_PREFIX}/status without authentication should return a 401 Unauthorized status code.
     """
-    response = client.get(f"{SELENIUM_HUB_PREFIX}/status")
+    response = client.get(endpoint)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 

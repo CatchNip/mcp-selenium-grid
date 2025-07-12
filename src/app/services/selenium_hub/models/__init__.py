@@ -14,7 +14,6 @@ from pydantic_settings import (
     SettingsConfigDict,
     YamlConfigSettingsSource,
 )
-from typing_extensions import override
 
 
 class DeploymentMode(str, Enum):
@@ -50,7 +49,6 @@ class CustomBaseSettings(BaseSettings):
         env_prefix="",
     )
 
-    @override
     @classmethod
     def settings_customise_sources(
         cls,
@@ -66,11 +64,11 @@ class CustomBaseSettings(BaseSettings):
         PydanticBaseSettingsSource,
         YamlConfigSettingsSource,
     ]:
-        # Make init_settings and env_settings higher priority than YAML
+        # Make env_settings and dotenv_settings higher priority than YAML and init_settings
         return (
-            init_settings,
             env_settings,
             dotenv_settings,
             file_secret_settings,
+            init_settings,  # this need to be lower priority or they initialize in `general_settings.py` and override the others.
             YamlConfigSettingsSource(settings_cls),
         )

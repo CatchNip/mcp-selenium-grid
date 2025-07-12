@@ -36,7 +36,7 @@ jobs:
           sudo chmod +x /usr/bin/yq
       - name: Rename KinD context
         run: |
-          new_context=$(yq '.k8s_context' config.yaml)
+          new_context=$(yq '.kubernetes.k8s_context' config.yaml)
           kubectl config rename-context kind-integration-e2e-tests "$new_context"
       - name: Export K8S_KUBECONFIG
         run: |

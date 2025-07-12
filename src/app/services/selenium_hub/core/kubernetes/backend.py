@@ -16,6 +16,7 @@ from kubernetes.client.models import (
     V1Deployment,
     V1DeploymentSpec,
     V1EnvVar,
+    V1ExecAction,
     V1LabelSelector,
     V1Namespace,
     V1ObjectMeta,
@@ -23,6 +24,7 @@ from kubernetes.client.models import (
     V1PodSecurityContext,
     V1PodSpec,
     V1PodTemplateSpec,
+    V1Probe,
     V1ResourceRequirements,
     V1SeccompProfile,
     V1SecurityContext,
@@ -34,6 +36,7 @@ from kubernetes.client.models import (
 from ...models.browser import BrowserConfig
 from ...models.general_settings import SeleniumHubGeneralSettings
 from ..hub_backend import HubBackend
+from .common.auth import get_encoded_auth
 from .common.constants import HTTP_NOT_FOUND
 from .common.decorators import ErrorStrategy, handle_kubernetes_exceptions
 from .k8s_config import KubernetesConfigManager
@@ -69,7 +72,7 @@ class KubernetesHubBackend(HubBackend):
             settings, self.k8s_core, self.config_manager.is_kind
         )
 
-        # Port-forwarding for KinD
+        # Port-forwarding
         self._port_forward_process = None
         self._port_forward_manager = None
 
@@ -113,7 +116,7 @@ class KubernetesHubBackend(HubBackend):
             self._port_forward_process.terminate()
             self._port_forward_process.wait()
             self._port_forward_process = None
-            logging.info("Stopped kubectl service port-forward for KinD.")
+            logging.info("Stopped kubectl service port-forward.")
 
         super().cleanup()
 
@@ -283,14 +286,17 @@ class KubernetesHubBackend(HubBackend):
                 # First ensure deployment exists (this creates pods)
                 await self._ensure_deployment_exists()
 
+                # Wait for pod is ready
+                await self._wait_for_hub_pod_ready()
+
                 # Then ensure service exists (this exposes the pods)
                 await self._ensure_service_exists()
 
                 # Wait for service to be ready (this ensures NodePort is assigned)
                 await self._wait_for_service_ready()
 
+                # Start service port foward, if is KinD (Kubernetes in Docker)
                 if self.config_manager.is_kind and not self._port_forward_process:
-                    await self._wait_for_hub_pod_ready()
                     await self._start_service_port_forward()
 
                 return True
@@ -455,6 +461,34 @@ class KubernetesHubBackend(HubBackend):
                 limits={"cpu": "1", "memory": "500Mi"},
             ),
             security_context=container_security_context,
+            startup_probe=V1Probe(
+                _exec=V1ExecAction(
+                    command=[
+                        "/bin/sh",
+                        "-c",
+                        f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Basic {get_encoded_auth(self.settings)}' http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}/status",
+                    ]
+                ),
+                initial_delay_seconds=5,
+                period_seconds=5,
+                timeout_seconds=3,
+                failure_threshold=30,
+                success_threshold=1,
+            ),
+            readiness_probe=V1Probe(
+                _exec=V1ExecAction(
+                    command=[
+                        "/bin/sh",
+                        "-c",
+                        f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Basic {get_encoded_auth(self.settings)}' http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}/status",
+                    ]
+                ),
+                initial_delay_seconds=5,
+                period_seconds=10,
+                timeout_seconds=5,
+                failure_threshold=3,
+                success_threshold=1,
+            ),
         )
 
         template = V1PodTemplateSpec(
@@ -546,7 +580,7 @@ class KubernetesHubBackend(HubBackend):
         return True
 
     async def _start_service_port_forward(self) -> None:
-        """Start kubectl port-forward for the Selenium Hub service (KinD only), with health check and retries."""
+        """Start kubectl port-forward for the Selenium Hub service, with health check and retries."""
         if not self.config_manager.is_kind or self._port_forward_process:
             return
         pfm = PortForwardManager(
