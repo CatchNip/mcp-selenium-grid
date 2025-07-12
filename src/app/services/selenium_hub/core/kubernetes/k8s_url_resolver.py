@@ -1,0 +1,81 @@
+import logging
+import time
+from os import environ
+from typing import Any, Optional
+
+from kubernetes.client import CoreV1Api
+
+from .common.decorators import ErrorStrategy, handle_kubernetes_exceptions
+
+
+class KubernetesUrlResolver:
+    """Handles URL resolution for different Kubernetes environments."""
+
+    def __init__(self, settings: Any, k8s_core: CoreV1Api, is_kind: bool) -> None:
+        self.settings = settings
+        self.k8s_core = k8s_core
+        self._is_kind = is_kind
+
+    def get_hub_url(self) -> str:
+        FALLBACK_URL = f"http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}"
+        if "KUBERNETES_SERVICE_HOST" in environ:
+            return self._get_in_cluster_url()
+        return self._get_nodeport_url(FALLBACK_URL)
+
+    def _get_in_cluster_url(self) -> str:
+        url = f"http://{self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME}.{self.settings.kubernetes.K8S_NAMESPACE}.svc.cluster.local:{self.settings.selenium_hub.SELENIUM_HUB_PORT}"
+        logging.info(f"Using in-cluster DNS for Selenium Hub URL: {url}")
+        return url
+
+    def _get_nodeport_url(self, fallback_url: str) -> str:
+        max_retries = 5
+        retry_delay = 2
+        for attempt in range(max_retries):
+            try:
+                url = self._try_get_nodeport_url(attempt, max_retries)
+                if url:
+                    return url
+                if attempt < max_retries - 1:
+                    logging.info(f"NodePort not yet assigned, retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+            except Exception as e:
+                self._handle_nodeport_error(e, attempt, max_retries, retry_delay, fallback_url)
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    break
+        return fallback_url
+
+    @handle_kubernetes_exceptions(ErrorStrategy.STRICT)
+    def _try_get_nodeport_url(self, attempt: int, max_retries: int) -> Optional[str]:
+        logging.info(
+            f"Attempt {attempt + 1}/{max_retries}: Getting NodePort for service {self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME} in namespace {self.settings.kubernetes.K8S_NAMESPACE}"
+        )
+        service = self.k8s_core.read_namespaced_service(
+            name=self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
+            namespace=self.settings.kubernetes.K8S_NAMESPACE,
+        )
+        logging.info(f"Service type: {service.spec.type if service.spec else 'None'}")
+        logging.info(
+            f"Service ports: {service.spec.ports if service.spec and service.spec.ports else 'None'}"
+        )
+        if not service.spec or not service.spec.ports:
+            return None
+        for port in service.spec.ports:
+            logging.info(
+                f"Checking port: port={port.port}, target_port={port.target_port}, node_port={port.node_port}"
+            )
+            if port.node_port:
+                url = f"http://localhost:{port.node_port}"
+                logging.info(f"Resolved NodePort URL: {url}")
+                return url
+        return None
+
+    def _handle_nodeport_error(
+        self, error: Exception, attempt: int, max_retries: int, retry_delay: int, fallback_url: str
+    ) -> None:
+        logging.error(
+            f"Error getting NodePort URL (attempt {attempt + 1}/{max_retries}): {error}. Fallback: {fallback_url}"
+        )

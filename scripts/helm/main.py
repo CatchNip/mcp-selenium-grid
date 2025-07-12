@@ -64,7 +64,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
 
         # Use settings for default release_name if not provided
         effective_release_name = (
-            release_name if release_name else settings.K8S_SELENIUM_GRID_SERVICE_NAME
+            release_name if release_name else settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME
         )
 
         # Validate inputs using Pydantic models
@@ -177,7 +177,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         settings = get_settings()
         # Use settings for default release_name if not provided
         effective_release_name = (
-            release_name if release_name else settings.K8S_SELENIUM_GRID_SERVICE_NAME
+            release_name if release_name else settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME
         )
 
         # Validate inputs

@@ -1,11 +1,12 @@
 import asyncio
 from typing import Any, ClassVar, Dict, List, Type
 
-from app.core.models import DeploymentMode
+from app.services.selenium_hub.models import DeploymentMode
 
-from .backend import HubBackend
-from .docker_backend import DockerHubBackend
-from .k8s_backend import KubernetesHubBackend
+from .core.docker_backend import DockerHubBackend
+from .core.hub_backend import HubBackend
+from .core.kubernetes.backend import KubernetesHubBackend
+from .models.general_settings import SeleniumHubGeneralSettings
 
 
 class SeleniumHubManager:
@@ -16,7 +17,7 @@ class SeleniumHubManager:
         DeploymentMode.KUBERNETES: KubernetesHubBackend,
     }
 
-    def __init__(self, settings: Any) -> None:
+    def __init__(self, settings: SeleniumHubGeneralSettings) -> None:
         try:
             backend_cls: Type[HubBackend] = self._BACKEND_MAP[settings.DEPLOYMENT_MODE]
         except KeyError:

@@ -1,10 +1,12 @@
 from unittest.mock import MagicMock
 
 import pytest
-from app.core.models import BrowserConfig, ContainerResources
-from app.services.selenium_hub.k8s_backend import KubernetesHubBackend, ResourceType
+from app.services.selenium_hub.core.kubernetes import KubernetesHubBackend, ResourceType
+from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
 from kubernetes.client.exceptions import ApiException
 from pytest_mock import MockerFixture
+
+from tests.conftest import mock_k8s_service_ready_state
 
 # NOTE: All tests must use the k8s_backend fixture to ensure proper mocking of Kubernetes API calls.
 # The fixture attaches set_namespace_exists to the backend for namespace mocking. Do not instantiate KubernetesHubBackend directly in tests.
@@ -71,11 +73,15 @@ async def test_ensure_hub_running_resources_exist(
     """Test that ensure_hub_running returns True when resources exist."""
     backend = k8s_backend
     # Mock the resource manager to return successfully
-    mocker.patch.object(backend.resource_manager, "_read_resource", return_value=MagicMock())
+    mocker.patch.object(backend.resource_manager, "read_resource", return_value=MagicMock())
     mocker.patch.object(backend, "_ensure_namespace_exists")
     mocker.patch.object(backend, "_ensure_deployment_exists")
     mocker.patch.object(backend, "_wait_for_hub_pod_ready")
     mocker.patch.object(backend, "_ensure_service_exists")
+    mocker.patch.object(backend, "_wait_for_service_ready")
+
+    # Mock service and endpoints to simulate ready state
+    mock_k8s_service_ready_state(mocker, backend)
 
     result = await backend.ensure_hub_running()
     assert result is True
@@ -96,6 +102,10 @@ async def test_ensure_hub_running_creates_resources(
     mocker.patch.object(backend, "_ensure_deployment_exists")
     mocker.patch.object(backend, "_wait_for_hub_pod_ready")
     mocker.patch.object(backend, "_ensure_service_exists")
+    mocker.patch.object(backend, "_wait_for_service_ready")
+
+    # Mock service and endpoints to simulate ready state
+    mock_k8s_service_ready_state(mocker, backend)
 
     result = await backend.ensure_hub_running()
     assert result is True
@@ -152,7 +162,7 @@ async def test_create_browsers_with_retries(
     """Test that create_browsers retries and succeeds after failures."""
     backend = k8s_backend
     api_error = ApiException(status=500, reason="Internal Server Error")
-    side_effects = [api_error] * (backend.settings.K8S_MAX_RETRIES - 1) + [MagicMock()]
+    side_effects = [api_error] * (backend.settings.kubernetes.K8S_MAX_RETRIES - 1) + [MagicMock()]
     mocker.patch.object(backend.k8s_core, "create_namespaced_pod", side_effect=side_effects)
     browser_configs = {
         "chrome": BrowserConfig(
@@ -224,7 +234,7 @@ async def test_delete_browser_success(
 ) -> None:
     """Test that delete_browser successfully deletes a browser."""
     backend = k8s_backend
-    mocker.patch.object(backend.resource_manager, "_delete_resource")
+    mocker.patch.object(backend.resource_manager, "delete_resource")
 
     result = await backend.delete_browser("test-browser-id")
     assert result is True

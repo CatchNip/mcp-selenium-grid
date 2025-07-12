@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.core.models import DeploymentMode
+from app.services.selenium_hub.models import DeploymentMode
 
 
 class HealthStatus(str, Enum):

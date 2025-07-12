@@ -3,10 +3,10 @@
 import asyncio
 from typing import Optional
 
-from app.core.settings import Settings
 from app.services.metrics import track_browser_metrics, track_hub_metrics
 
 from .manager import SeleniumHubManager
+from .models.general_settings import SeleniumHubGeneralSettings
 
 
 class SeleniumHub:
@@ -18,10 +18,10 @@ class SeleniumHub:
 
     The singleton instance is created on first instantiation and reused for subsequent calls.
     The initialization of instance variables only happens once, even if the constructor is called multiple times.
-    Settings provided after initialization will update the existing instance.
+    SeleniumHubBaseSettings provided after initialization will update the existing instance.
 
     Attributes:
-        settings (Settings): Application settings used to configure the hub and browsers
+        settings (SeleniumHubBaseSettings): Application settings used to configure the hub and browsers
         _manager (SeleniumHubManager): Manager instance that handles the actual hub operations
         browser_configs (Dict[str, BrowserConfig]): Configuration for supported browser types
 
@@ -33,12 +33,12 @@ class SeleniumHub:
     _instance: Optional["SeleniumHub"] = None
     _initialized: bool = False
 
-    def __new__(cls, settings: Optional[Settings] = None) -> "SeleniumHub":
+    def __new__(cls, settings: Optional[SeleniumHubGeneralSettings] = None) -> "SeleniumHub":
         """
         Create or return the singleton instance.
 
         Args:
-            settings (Optional[Settings]): Application settings. Required for first initialization.
+            settings (Optional[SeleniumHubBaseSettings]): Application settings. Required for first initialization.
 
         Returns:
             SeleniumHub: The singleton instance
@@ -48,11 +48,13 @@ class SeleniumHub:
         """
         if cls._instance is None:
             if settings is None:
-                raise ValueError("Settings must be provided for first initialization")
+                raise ValueError(
+                    "SeleniumHubBaseSettings must be provided for first initialization"
+                )
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, settings: Optional[Settings] = None) -> None:
+    def __init__(self, settings: Optional[SeleniumHubGeneralSettings] = None) -> None:
         """
         Initialize or update the singleton instance.
 
@@ -66,7 +68,7 @@ class SeleniumHub:
         - Updates browser configs if needed
 
         Args:
-            settings (Optional[Settings]): Application settings. Required for first initialization.
+            settings (Optional[SeleniumHubBaseSettings]): Application settings. Required for first initialization.
 
         Raises:
             ValueError: If settings is None during first initialization
@@ -74,8 +76,10 @@ class SeleniumHub:
         """
         if not self._initialized:
             if settings is None:
-                raise ValueError("Settings must be provided for first initialization")
-            self.settings: Settings = settings
+                raise ValueError(
+                    "SeleniumHubBaseSettings must be provided for first initialization"
+                )
+            self.settings: SeleniumHubGeneralSettings = settings
             self._manager: SeleniumHubManager = SeleniumHubManager(self.settings)
             self._initialized = True
         elif settings is not None:
@@ -103,9 +107,11 @@ class SeleniumHub:
         Returns:
             bool: True if the hub responds with 200 OK, False otherwise.
         """
-        username = self.settings.SELENIUM_HUB_USER.get_secret_value()
-        password = self.settings.SELENIUM_HUB_PASSWORD.get_secret_value()
-        return await self._manager.check_hub_health(username, password)
+
+        return await self._manager.check_hub_health(
+            username=self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value(),
+            password=self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value(),
+        )
 
     @track_hub_metrics()
     async def ensure_hub_running(self) -> bool:
@@ -157,14 +163,17 @@ class SeleniumHub:
         """
         if count <= 0:
             raise ValueError("Browser count must be positive")
-        if browser_type not in self.settings.BROWSER_CONFIGS:
+        if browser_type not in self.settings.selenium_hub.BROWSER_CONFIGS:
             raise KeyError(f"Unsupported browser type: {browser_type}")
-        if self.settings.MAX_BROWSER_INSTANCES and count > self.settings.MAX_BROWSER_INSTANCES:
+        if (
+            self.settings.selenium_hub.MAX_BROWSER_INSTANCES
+            and count > self.settings.selenium_hub.MAX_BROWSER_INSTANCES
+        ):
             raise ValueError(
-                f"Maximum browser instances exceeded: {count} > {self.settings.MAX_BROWSER_INSTANCES}"
+                f"Maximum browser instances exceeded: {count} > {self.settings.selenium_hub.MAX_BROWSER_INSTANCES}"
             )
         return await self._manager.create_browsers(
-            count, browser_type, self.settings.BROWSER_CONFIGS
+            count, browser_type, self.settings.selenium_hub.BROWSER_CONFIGS
         )
 
     @track_browser_metrics()

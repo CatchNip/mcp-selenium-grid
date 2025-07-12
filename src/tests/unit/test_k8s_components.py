@@ -3,10 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from app.services.selenium_hub.k8s_backend import (
-    KubernetesConfigManager,
-    KubernetesUrlResolver,
-)
+from app.services.selenium_hub.core.kubernetes import KubernetesConfigManager, KubernetesUrlResolver
 from kubernetes.client.exceptions import ApiException
 from kubernetes.config.config_exception import ConfigException
 from pytest_mock import MockerFixture
@@ -18,23 +15,25 @@ class TestKubernetesConfigManager:
     @pytest.mark.unit
     def test_init_loads_config_and_detects_kind(self, mocker: MockerFixture) -> None:
         """Test that __init__ loads config and detects KinD cluster."""
-        settings = MagicMock()
-        settings.K8S_KUBECONFIG = None
-        settings.K8S_CONTEXT = None
+        k8s_settings = MagicMock()
+        k8s_settings.K8S_KUBECONFIG = None
+        k8s_settings.K8S_CONTEXT = None
 
         # Mock config loading at the module level
         mock_load_incluster = mocker.patch(
-            "app.services.selenium_hub.k8s_backend.load_incluster_config"
+            "app.services.selenium_hub.core.kubernetes.k8s_config.load_incluster_config"
         )
-        mocker.patch("app.services.selenium_hub.k8s_backend.load_kube_config")
+        mocker.patch("app.services.selenium_hub.core.kubernetes.k8s_config.load_kube_config")
 
         # Mock KinD detection by node name
-        mock_core_api = mocker.patch("app.services.selenium_hub.k8s_backend.CoreV1Api")
+        mock_core_api = mocker.patch(
+            "app.services.selenium_hub.core.kubernetes.k8s_config.CoreV1Api"
+        )
         mock_node = MagicMock()
         mock_node.metadata.name = "kind-control-plane"
         mock_core_api.return_value.list_node.return_value.items = [mock_node]
 
-        manager = KubernetesConfigManager(settings)
+        manager = KubernetesConfigManager(k8s_settings)
 
         mock_load_incluster.assert_called_once()
         assert manager.is_kind is True
@@ -42,22 +41,25 @@ class TestKubernetesConfigManager:
     @pytest.mark.unit
     def test_init_falls_back_to_kubeconfig(self, mocker: MockerFixture) -> None:
         """Test that __init__ falls back to kubeconfig when not in cluster."""
-        settings = MagicMock()
-        settings.K8S_KUBECONFIG = "/path/to/kubeconfig"
-        settings.K8S_CONTEXT = "test-context"
+        k8s_settings = MagicMock()
+        k8s_settings.K8S_KUBECONFIG = "/path/to/kubeconfig"
+        k8s_settings.K8S_CONTEXT = "test-context"
 
         # Mock in-cluster config to fail with ConfigException, kube config to succeed
         mock_load_incluster = mocker.patch(
-            "app.services.selenium_hub.k8s_backend.load_incluster_config",
+            "app.services.selenium_hub.core.kubernetes.k8s_config.load_incluster_config",
             side_effect=ConfigException("Not in cluster"),
         )
-        mocker.patch("app.services.selenium_hub.k8s_backend.load_kube_config", return_value=None)
+        mocker.patch(
+            "app.services.selenium_hub.core.kubernetes.k8s_config.load_kube_config",
+            return_value=None,
+        )
 
         # Mock KinD detection to fail
-        mock_core_api = mocker.patch("app.services.selenium_hub.k8s_backend.CoreV1Api")
+        mock_core_api = mocker.patch("app.services.selenium_hub.core.kubernetes.backend.CoreV1Api")
         mock_core_api.return_value.read_node.side_effect = Exception("Not KinD")
 
-        manager = KubernetesConfigManager(settings)
+        manager = KubernetesConfigManager(k8s_settings)
 
         mock_load_incluster.assert_called_once()
         assert manager.is_kind is False
@@ -65,22 +67,22 @@ class TestKubernetesConfigManager:
     @pytest.mark.unit
     def test_init_handles_config_loading_error(self, mocker: MockerFixture) -> None:
         """Test that __init__ handles config loading errors properly."""
-        settings = MagicMock()
-        settings.K8S_KUBECONFIG = None
-        settings.K8S_CONTEXT = None
+        k8s_settings = MagicMock()
+        k8s_settings.K8S_KUBECONFIG = None
+        k8s_settings.K8S_CONTEXT = None
 
         # Mock config loading to fail at the module level
         mocker.patch(
-            "app.services.selenium_hub.k8s_backend.load_incluster_config",
+            "app.services.selenium_hub.core.kubernetes.k8s_config.load_incluster_config",
             side_effect=Exception("Config error"),
         )
         mocker.patch(
-            "app.services.selenium_hub.k8s_backend.load_kube_config",
+            "app.services.selenium_hub.core.kubernetes.k8s_config.load_kube_config",
             side_effect=Exception("Config error"),
         )
 
         with pytest.raises(Exception, match="Config error"):
-            KubernetesConfigManager(settings)
+            KubernetesConfigManager(k8s_settings)
 
 
 class TestKubernetesUrlResolver:
@@ -90,7 +92,7 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_kind_cluster(self, mocker: MockerFixture) -> None:
         """Test URL resolution for KinD cluster."""
         settings = MagicMock()
-        settings.SELENIUM_HUB_PORT = 4444
+        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
         k8s_core = MagicMock()
         is_kind = True
 
@@ -104,9 +106,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_in_cluster(self, mocker: MockerFixture) -> None:
         """Test URL resolution when running in cluster."""
         settings = MagicMock()
-        settings.SELENIUM_HUB_PORT = 4444
-        settings.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.K8S_NAMESPACE = "default"
+        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.K8S_NAMESPACE = "default"
         k8s_core = MagicMock()
         is_kind = False
 
@@ -119,9 +121,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_nodeport_success(self, mocker: MockerFixture) -> None:
         """Test URL resolution with successful NodePort lookup."""
         settings = MagicMock()
-        settings.SELENIUM_HUB_PORT = 4444
-        settings.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.K8S_NAMESPACE = "default"
+        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.K8S_NAMESPACE = "default"
         k8s_core = MagicMock()
 
         # Mock service with NodePort
@@ -143,9 +145,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_nodeport_fallback(self, mocker: MockerFixture) -> None:
         """Test URL resolution falls back when NodePort lookup fails."""
         settings = MagicMock()
-        settings.SELENIUM_HUB_PORT = 4444
-        settings.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.K8S_NAMESPACE = "default"
+        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.K8S_NAMESPACE = "default"
         k8s_core = MagicMock()
 
         # Mock service without NodePort
@@ -167,9 +169,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_api_exception_fallback(self, mocker: MockerFixture) -> None:
         """Test URL resolution falls back when API call fails."""
         settings = MagicMock()
-        settings.SELENIUM_HUB_PORT = 4444
-        settings.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.K8S_NAMESPACE = "default"
+        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.K8S_NAMESPACE = "default"
         k8s_core = MagicMock()
 
         # Mock API exception

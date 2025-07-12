@@ -6,11 +6,14 @@ import httpx
 import pytest
 import pytest_asyncio
 from _pytest.fixtures import SubRequest
-from app.core.models import BrowserConfig, ContainerResources, DeploymentMode
 from app.core.settings import Settings
 from app.services.selenium_hub import SeleniumHub
-from app.services.selenium_hub.docker_backend import DockerHubBackend
-from app.services.selenium_hub.k8s_backend import KubernetesHubBackend
+from app.services.selenium_hub.core.docker_backend import DockerHubBackend
+from app.services.selenium_hub.core.kubernetes import KubernetesHubBackend
+from app.services.selenium_hub.models import DeploymentMode
+from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
+from app.services.selenium_hub.models.kubernetes_settings import KubernetesSettings
+from app.services.selenium_hub.models.selenium_settings import SeleniumHubSettings
 from pydantic import SecretStr
 from pytest_mock import MockerFixture
 
@@ -58,7 +61,11 @@ def generate_selenium_fixture(
 
         # K8s-specific: patch classes and properties only if needed
         if backend_cls is KubernetesHubBackend:
-            mocker.patch("app.services.selenium_hub.k8s_backend.KubernetesConfigManager")
+            # Patch kubernetes config loading functions to prevent real K8s environment access
+            mocker.patch(
+                "app.services.selenium_hub.core.kubernetes.k8s_config.load_incluster_config"
+            )
+            mocker.patch("app.services.selenium_hub.core.kubernetes.k8s_config.load_kube_config")
 
         settings = request.getfixturevalue(settings_arg_name)
         reset_selenium_hub_singleton()
@@ -180,7 +187,7 @@ async def test_create_browsers(
     result = await hub.create_browsers(browser_type="chrome", count=1)
     assert result[0] == expected_browser_id
     hub._manager.backend.create_browsers.assert_called_once_with(  # type: ignore
-        1, "chrome", hub.settings.BROWSER_CONFIGS
+        1, "chrome", hub.settings.selenium_hub.BROWSER_CONFIGS
     )
 
 
@@ -305,7 +312,7 @@ async def test_create_browsers_handles_max_instances(
     Expected:
         If should_raise is True, the create_browsers method should raise a ValueError. Otherwise, it should return a list of browser IDs.
     """
-    selenium_hub_docker_backend.settings.MAX_BROWSER_INSTANCES = max_instances
+    selenium_hub_docker_backend.settings.selenium_hub.MAX_BROWSER_INSTANCES = max_instances
     if should_raise:
         with pytest.raises(ValueError, match="Maximum browser instances exceeded"):
             await selenium_hub_docker_backend.create_browsers(
@@ -377,24 +384,28 @@ async def test_singleton_behavior() -> None:
     settings = Settings(
         PROJECT_NAME="Test Project",
         VERSION="0.1.0",
+        DEPLOYMENT_MODE=DeploymentMode.DOCKER,
         API_V1_STR="/api/v1",
         API_TOKEN=SecretStr("test-token"),
-        SELENIUM_HUB_USER=SecretStr("test-user"),
-        SELENIUM_HUB_PASSWORD=SecretStr("test-password"),
-        MAX_BROWSER_INSTANCES=2,
-        SE_NODE_MAX_SESSIONS=1,
-        DEPLOYMENT_MODE=DeploymentMode.DOCKER,
-        K8S_NAMESPACE="test-namespace",
-        K8S_RETRY_DELAY_SECONDS=2,
-        K8S_MAX_RETRIES=5,
+        selenium_hub=SeleniumHubSettings(
+            SELENIUM_HUB_USER=SecretStr("user"),
+            SELENIUM_HUB_PASSWORD=SecretStr("pass"),
+            MAX_BROWSER_INSTANCES=2,
+            SE_NODE_MAX_SESSIONS=1,
+            BROWSER_CONFIGS={
+                "chrome": BrowserConfig(
+                    image="selenium/node-chrome:latest",
+                    port=5555,
+                    resources=ContainerResources(memory="1G", cpu="0.5"),
+                )
+            },
+        ),
+        kubernetes=KubernetesSettings(
+            K8S_NAMESPACE="selenium-grid",
+            K8S_RETRY_DELAY_SECONDS=2,
+            K8S_MAX_RETRIES=5,
+        ),
         BACKEND_CORS_ORIGINS=["http://localhost:8000"],
-        BROWSER_CONFIGS={
-            "chrome": BrowserConfig(
-                image="selenium/node-chrome:latest",
-                resources=ContainerResources(memory="1G", cpu="1"),
-                port=4444,
-            )
-        },
     )
 
     # Create first instance with settings

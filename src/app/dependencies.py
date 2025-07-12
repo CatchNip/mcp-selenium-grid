@@ -83,8 +83,8 @@ def verify_basic_auth(
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Basic"},
         )
-    user = settings.SELENIUM_HUB_USER.get_secret_value()
-    pwd = settings.SELENIUM_HUB_PASSWORD.get_secret_value()
+    user = settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()
+    pwd = settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()
 
     if not (
         compare_digest(user, credentials.username) and compare_digest(pwd, credentials.password)

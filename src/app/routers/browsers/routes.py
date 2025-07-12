@@ -5,10 +5,10 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.models import BrowserConfig, BrowserInstance
 from app.core.settings import Settings
 from app.dependencies import get_settings, verify_token
 from app.services.selenium_hub import SeleniumHub
+from app.services.selenium_hub.models.browser import BrowserConfig, BrowserInstance
 
 from .models import (
     BrowserResponseStatus,
@@ -33,17 +33,20 @@ async def create_browsers(
     credentials: HTTPAuthorizationCredentials = Depends(verify_token),
 ) -> CreateBrowserResponse:
     """Create browser instances in Selenium Grid."""
-    if settings.MAX_BROWSER_INSTANCES and request.count > settings.MAX_BROWSER_INSTANCES:
+    if (
+        settings.selenium_hub.MAX_BROWSER_INSTANCES
+        and request.count > settings.selenium_hub.MAX_BROWSER_INSTANCES
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximum allowed browser instances is {settings.MAX_BROWSER_INSTANCES}",
+            detail=f"Maximum allowed browser instances is {settings.selenium_hub.MAX_BROWSER_INSTANCES}",
         )
 
     # Check if requested browser type is available in configs before proceeding
-    if request.browser_type not in settings.BROWSER_CONFIGS:
+    if request.browser_type not in settings.selenium_hub.BROWSER_CONFIGS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported browser type: {request.browser_type}. Available: {list(settings.BROWSER_CONFIGS.keys())}",
+            detail=f"Unsupported browser type: {request.browser_type}. Available: {list(settings.selenium_hub.BROWSER_CONFIGS.keys())}",
         )
 
     hub = SeleniumHub()  # This will return the singleton instance
@@ -52,7 +55,7 @@ async def create_browsers(
             count=request.count,
             browser_type=request.browser_type,
         )
-        browser_config: BrowserConfig = settings.BROWSER_CONFIGS[request.browser_type]
+        browser_config: BrowserConfig = settings.selenium_hub.BROWSER_CONFIGS[request.browser_type]
         browsers: List[BrowserInstance] = [
             BrowserInstance(id=bid, type=request.browser_type, resources=browser_config.resources)
             for bid in browser_ids
@@ -66,7 +69,7 @@ async def create_browsers(
         import logging  # noqa: PLC0415
 
         logging.error(
-            f"Exception in create_browsers: {e}. BROWSER_CONFIGS: {settings.BROWSER_CONFIGS}"
+            f"Exception in create_browsers: {e}. BROWSER_CONFIGS: {settings.selenium_hub.BROWSER_CONFIGS}"
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 

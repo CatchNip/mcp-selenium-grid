@@ -6,17 +6,11 @@ from urllib.parse import urljoin
 
 import httpx
 
-from app.core.models import BrowserConfig
+from ..models.browser import BrowserConfig
 
 
 class HubBackend(ABC):
     """Abstract interface for Selenium Hub backends."""
-
-    # Constants for resource names
-    HUB_NAME = "selenium-hub"  # Represents the K8s Deployment/Service name for the hub
-    NETWORK_NAME = "selenium-grid"
-    NODE_LABEL = "selenium-node"
-    BROWSER_LABEL = "browser"
 
     def __init__(self: "HubBackend", *args: Any, **kwargs: Any) -> None:
         pass
@@ -68,14 +62,25 @@ class HubBackend(ABC):
         Returns True if the hub responds with 200 OK, False otherwise.
         """
         url = urljoin(self.URL, "status")
-        logging.info(f"KubernetesHubBackend: Checking health for {url}")
+        logging.info(f"{self.__class__.__name__}: Checking health for {url}")
         auth = httpx.BasicAuth(username, password)
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(2.0), auth=auth) as client:
+            # Use a longer timeout for health checks to allow for startup time
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), auth=auth) as client:
                 response = await client.get(url)
                 if response.status_code == httpx.codes.OK:
                     return True
                 else:
+                    try:
+                        response_body = response.text
+                        logging.warning(
+                            f"Health check failed with status code: {response.status_code}, response body: {response_body}"
+                        )
+                    except Exception:
+                        logging.warning(
+                            f"Health check failed with status code: {response.status_code}, could not read response body"
+                        )
                     return False
-        except httpx.RequestError:
+        except httpx.RequestError as e:
+            logging.warning(f"Health check request failed: {e}")
             return False

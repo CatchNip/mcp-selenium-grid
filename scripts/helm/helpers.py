@@ -15,19 +15,21 @@ def resolve_namespace_context_and_kubeconfig(
     settings: Settings,
 ) -> Tuple[K8sName, Optional[str], Optional[str]]:
     """Resolves the effective namespace and Kubernetes context."""
-    namespace_name = cli_namespace_arg or settings.K8S_NAMESPACE
+    namespace_name = cli_namespace_arg or settings.kubernetes.K8S_NAMESPACE
     namespace_obj = K8sName(name=namespace_name)
     effective_kube_context = (
-        cli_kube_context_arg if cli_kube_context_arg is not None else settings.K8S_CONTEXT
+        cli_kube_context_arg
+        if cli_kube_context_arg is not None
+        else settings.kubernetes.K8S_CONTEXT
     )
 
     resolved_kubeconfig_str: Optional[str] = None
     if cli_kubeconfig_arg is not None:
         # Typer converts the CLI argument to a Path object.
         resolved_kubeconfig_str = str(cli_kubeconfig_arg.expanduser())
-    elif settings.K8S_KUBECONFIG:
-        # settings.K8S_KUBECONFIG is a Path from the config file.
-        resolved_kubeconfig_str = str(settings.K8S_KUBECONFIG)
+    elif settings.kubernetes.K8S_KUBECONFIG:
+        # settings.kubernetes.K8S_KUBECONFIG is a str from the config file.
+        resolved_kubeconfig_str = settings.kubernetes.K8S_KUBECONFIG
 
     return namespace_obj, effective_kube_context, resolved_kubeconfig_str
 
@@ -61,12 +63,12 @@ def map_config_to_helm_values(settings: Settings) -> Tuple[List[str], Dict[str, 
     Raises:
         ValueError: If no browser configurations are found in settings.
     """
-    if not settings.BROWSER_CONFIGS:
-        raise ValueError("No browser configurations found in settings")
+    if not settings.selenium_hub.BROWSER_CONFIGS:
+        raise ValueError("No browser configurations found in settings.selenium_hub.BROWSER_CONFIGS")
 
-    first_browser = next(iter(settings.BROWSER_CONFIGS.values()))
+    first_browser = next(iter(settings.selenium_hub.BROWSER_CONFIGS.values()))
 
-    limit_pods = settings.MAX_BROWSER_INSTANCES + 1  # Browsers + Hub
+    limit_pods = settings.selenium_hub.MAX_BROWSER_INSTANCES + 1  # Browsers + Hub
 
     memory = parse_quantity(first_browser.resources.memory)
 
@@ -74,7 +76,7 @@ def map_config_to_helm_values(settings: Settings) -> Tuple[List[str], Dict[str, 
 
     # Build the --set arguments with only non-sensitive values
     set_args = [
-        f"namespace={settings.K8S_NAMESPACE}",
+        f"namespace={settings.kubernetes.K8S_NAMESPACE}",
         f"resources.limits.cpu={cpu_decimal * limit_pods * 2}",
         f"resources.limits.memory={format_memory(memory * limit_pods * 2)}",
         f"resources.limits.pods={limit_pods}",

@@ -1,16 +1,12 @@
-"""Core data models for MCP Server."""
+"""
+Data models for browser configuration and capabilities.
 
-from enum import Enum
+Defines schemas for representing browser types, versions, and capabilities
+used by the Selenium Hub for browser management and orchestration.
+"""
 
 from docker.utils import parse_bytes
 from pydantic import BaseModel, Field, field_validator
-
-
-class DeploymentMode(str, Enum):
-    """Deployment mode enum for service configuration."""
-
-    DOCKER = "docker"
-    KUBERNETES = "kubernetes"
 
 
 class ContainerResources(BaseModel):
@@ -22,7 +18,6 @@ class ContainerResources(BaseModel):
     @field_validator("memory")
     @classmethod
     def memory_must_be_valid_docker_memory_string(cls, value: str) -> str:
-        """Validate memory format using Docker's parse_bytes."""
         try:
             parse_bytes(value)
             return value
@@ -32,9 +27,7 @@ class ContainerResources(BaseModel):
     @field_validator("cpu")
     @classmethod
     def cpu_must_be_valid_docker_cpu_string(cls, value: str) -> str:
-        """Validate CPU format for Docker."""
         try:
-            # Just validate it's a positive number
             cpu_value = float(value.rstrip("m"))
             if cpu_value <= 0:
                 raise ValueError
@@ -72,11 +65,3 @@ class BrowserInstance(BaseModel):
         if value not in valid_types:
             raise ValueError(f"`type` must be one of {valid_types}")
         return value
-
-
-# Example usage (optional)
-# config = BrowserConfig(
-#     image="selenium/node-chrome:latest",
-#     resources=ContainerResources(memory="1G", cpu=1),
-#     port=4444
-# )

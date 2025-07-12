@@ -505,12 +505,12 @@ wheels = [
 ]
 
 [[package]]
-name = "kubernetes-stubs"
-version = "22.6.0.post1"
+name = "kubernetes-stubs-elephant-fork"
+version = "33.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c2/aa/3242e96c43e5432619a0bdca51a1cc1849e329fe43ee981c80a46a202592/kubernetes-stubs-22.6.0.post1.tar.gz", hash = "sha256:9f4de86ef3c5aeb8ca555164f7427e8d909b00ad0b2081cf2bf17dc44cfb63e9", size = 109892, upload-time = "2022-04-20T04:31:48.612Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/86/2b/d8a7801342820a262fa9e13a26222bb3cd2d3a966957459454480ab1cd9f/kubernetes_stubs_elephant_fork-33.1.0.tar.gz", hash = "sha256:9e53854737d1649649f4bbd263c8e9ba21b82e1ce39e427df0568b3fdf4e46ff", size = 143231, upload-time = "2025-06-09T22:31:30.779Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/ba/6618982cef12645ab183aa0c6fd44764af3c2dae7353e354ca68e28e3ae3/kubernetes_stubs-22.6.0.post1-py2.py3-none-any.whl", hash = "sha256:46a4d6fc30458f245c54d2f5777dcb2ecc16bc86258fb37c7b87c631d2ac61da", size = 345879, upload-time = "2022-04-20T04:31:47.359Z" },
+    { url = "https://files.pythonhosted.org/packages/72/a2/882bbb5aa9b381955644a876fc4164a8a0d1b9f4a929bf6dd8b77c7f967e/kubernetes_stubs_elephant_fork-33.1.0-py2.py3-none-any.whl", hash = "sha256:a2a5746686b695ac22aee5edce703b09d5a97821b935d156eb0eef45359bb092", size = 437909, upload-time = "2025-06-09T22:31:29.632Z" },
 ]
 
 [[package]]
@@ -629,7 +629,7 @@ test = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "kubernetes-stubs" },
+    { name = "kubernetes-stubs-elephant-fork" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "ruff" },
@@ -658,7 +658,7 @@ provides-extras = ["test"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "kubernetes-stubs", specifier = ">=22.6.0.post1" },
+    { name = "kubernetes-stubs-elephant-fork", specifier = ">=33.1.0" },
     { name = "mypy", specifier = ">=1.16.1" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "ruff", specifier = ">=0.12.2" },

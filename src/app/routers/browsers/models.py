@@ -5,7 +5,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.core.models import BrowserInstance
+from app.services.selenium_hub.models.browser import BrowserInstance
 
 
 class BrowserResponseStatus(str, Enum):

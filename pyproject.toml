@@ -39,7 +39,7 @@ dev-dependencies = [
     "pre-commit>=4.2.0",
     "types-docker>=7.1.0.20250523",
     "types-pyyaml>=6.0.12.20250516",
-    "kubernetes-stubs>=22.6.0.post1",
+    "kubernetes-stubs-elephant-fork>=33.1.0",
     "typer>=0.16.0",
 ]
 

@@ -1,37 +1,41 @@
 project_name: MCP Selenium Server
 version: 0.1.0
+deployment_mode: docker # one of: docker, kubernetes (DeploymentMode enum values)
 api_v1_str: /api/v1
 api_token: CHANGE_ME
-selenium_node_max_sessions: 1
-selenium_hub_user: user
-selenium_hub_password: CHANGE_ME
-selenium_hub_vnc_password: CHANGE_ME
-selenium_hub_vnc_view_only: false
-selenium_hub_vnc_port: 7900
-max_browser_instances: 10
-deployment_mode: docker # one of: docker, kubernetes (DeploymentMode enum values)
-k8s_kubeconfig: ~/.kube/config-local-k3s # must exist (check the README.md)
-k8s_context: k3s-selenium-grid # must exist (check the README.md)
-k8s_namespace: selenium-grid-dev
-k8s_selenium_grid_service_name: selenium-grid
 allowed_origins:
   - http://localhost:8000
-browser_configs:
-  chrome:
-    image: selenium/node-chrome:4.18.1
-    port: 4444
-    resources:
-      memory: "1G"
-      cpu: "0.5"
-  firefox:
-    image: selenium/node-firefox:4.18.1
-    port: 4444
-    resources:
-      memory: "1G"
-      cpu: "0.5"
-  edge:
-    image: selenium/node-edge:4.18.1
-    port: 4444
-    resources:
-      memory: "1G"
-      cpu: "0.5"
+
+selenium_hub:
+  se_node_max_sessions: 1
+  selenium_hub_user: user
+  selenium_hub_password: CHANGE_ME
+  selenium_hub_vnc_password: CHANGE_ME
+  selenium_hub_vnc_view_only: false
+  selenium_hub_vnc_port: 7900
+  max_browser_instances: 10
+  browser_configs:
+    chrome:
+      image: selenium/node-chrome:4.18.1
+      port: 4444
+      resources:
+        memory: "1G"
+        cpu: "0.5"
+    firefox:
+      image: selenium/node-firefox:4.18.1
+      port: 4444
+      resources:
+        memory: "1G"
+        cpu: "0.5"
+    edge:
+      image: selenium/node-edge:4.18.1
+      port: 4444
+      resources:
+        memory: "1G"
+        cpu: "0.5"
+
+kubernetes:
+  k8s_kubeconfig: ~/.kube/config-local-k3s # must exist (check the README.md)
+  k8s_context: k3s-selenium-grid # must exist (check the README.md)
+  k8s_namespace: selenium-grid-dev
+  k8s_selenium_grid_service_name: selenium-grid

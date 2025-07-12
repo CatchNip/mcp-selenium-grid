@@ -4,9 +4,9 @@ from urllib.parse import urljoin
 
 import httpx
 import pytest
-from app.core.models import DeploymentMode
 from app.core.settings import Settings
 from app.services.selenium_hub import SeleniumHub
+from app.services.selenium_hub.models import DeploymentMode
 
 
 @pytest.mark.e2e
@@ -25,8 +25,8 @@ async def test_check_hub_health(request: pytest.FixtureRequest) -> None:
 
     # Verify hub status endpoint is accessible
     auth = httpx.BasicAuth(
-        settings.SELENIUM_HUB_USER.get_secret_value(),
-        settings.SELENIUM_HUB_PASSWORD.get_secret_value(),
+        settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value(),
+        settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value(),
     )
     async with httpx.AsyncClient(auth=auth) as client:
         response = await client.get(urljoin(hub.URL, "status"))

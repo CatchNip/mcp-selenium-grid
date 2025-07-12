@@ -12,7 +12,6 @@ from prometheus_client import generate_latest
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.responses import Response
 
-from app.core.models import DeploymentMode
 from app.dependencies import get_settings, verify_token
 from app.models import HealthCheckResponse, HealthStatus, HubStatusResponse
 from app.routers.browsers import router as browsers_router
@@ -91,7 +90,7 @@ def create_application() -> FastAPI:
         is_healthy = await hub.check_hub_health()
         return HealthCheckResponse(
             status=HealthStatus.HEALTHY if is_healthy else HealthStatus.UNHEALTHY,
-            deployment_mode=DeploymentMode(settings.DEPLOYMENT_MODE),
+            deployment_mode=settings.DEPLOYMENT_MODE,
         )
 
     # Stats endpoint
@@ -118,7 +117,7 @@ def create_application() -> FastAPI:
             hub_running=is_running,
             hub_healthy=is_healthy,
             deployment_mode=settings.DEPLOYMENT_MODE,
-            max_instances=settings.MAX_BROWSER_INSTANCES,
+            max_instances=settings.selenium_hub.MAX_BROWSER_INSTANCES,
             browsers=browsers,
         )
 

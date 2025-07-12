@@ -4,14 +4,13 @@ from typing import Dict, List, override
 import docker
 from docker.errors import APIError, NotFound
 
-from app.core.models import BrowserConfig
-from app.core.settings import Settings
-
-from .backend import HubBackend
+from ..models.browser import BrowserConfig
+from ..models.general_settings import SeleniumHubGeneralSettings
+from .hub_backend import HubBackend
 
 
 class DockerHubBackend(HubBackend):
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: SeleniumHubGeneralSettings):
         self.client = docker.from_env()
         self.settings = settings
 
@@ -19,7 +18,7 @@ class DockerHubBackend(HubBackend):
     @override
     def URL(self) -> str:
         """Base URL for the Docker Selenium Hub."""
-        return f"http://localhost:{self.settings.SELENIUM_HUB_PORT}"
+        return f"http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}"
 
     def _remove_container(self, container_name: str) -> None:
         """Helper method to remove a container by name."""
@@ -52,15 +51,15 @@ class DockerHubBackend(HubBackend):
     @override
     def cleanup_hub(self) -> None:
         """Clean up Selenium Hub container and network."""
-        self._remove_container(self.HUB_NAME)
-        self._remove_network(self.NETWORK_NAME)
+        self._remove_container(self.settings.HUB_NAME)
+        self._remove_network(self.settings.docker.DOCKER_NETWORK_NAME)
 
     @override
     def cleanup_browsers(self) -> None:
         """Clean up all browser containers."""
         try:
             # Get all containers with the selenium-node label
-            containers = self.client.containers.list(filters={"label": self.NODE_LABEL})
+            containers = self.client.containers.list(filters={"label": self.settings.NODE_LABEL})
             for container in containers:
                 self._remove_container(container.name)
         except APIError as e:
@@ -78,60 +77,74 @@ class DockerHubBackend(HubBackend):
 
         # Ensure network exists
         try:
-            self.client.networks.get(self.NETWORK_NAME)
-            logging.info(f"Docker network '{self.NETWORK_NAME}' already exists.")
+            self.client.networks.get(self.settings.docker.DOCKER_NETWORK_NAME)
+            logging.info(
+                f"Docker network '{self.settings.docker.DOCKER_NETWORK_NAME}' already exists."
+            )
         except NotFound:
-            logging.info(f"Docker network '{self.NETWORK_NAME}' not found, creating.")
-            self.client.networks.create(self.NETWORK_NAME, driver="bridge")
-            logging.info(f"Docker network '{self.NETWORK_NAME}' created.")
+            logging.info(
+                f"Docker network '{self.settings.docker.DOCKER_NETWORK_NAME}' not found, creating."
+            )
+            self.client.networks.create(self.settings.docker.DOCKER_NETWORK_NAME, driver="bridge")
+            logging.info(f"Docker network '{self.settings.docker.DOCKER_NETWORK_NAME}' created.")
         except APIError as e:
-            logging.error(f"Docker API error ensuring network '{self.NETWORK_NAME}': {e}")
+            logging.error(
+                f"Docker API error ensuring network '{self.settings.docker.DOCKER_NETWORK_NAME}': {e}"
+            )
             return False
         except Exception as e:
-            logging.exception(f"Unexpected error ensuring network '{self.NETWORK_NAME}': {e}")
+            logging.exception(
+                f"Unexpected error ensuring network '{self.settings.docker.DOCKER_NETWORK_NAME}': {e}"
+            )
             return False
 
         # Ensure Hub container is running
         try:
-            hub = self.client.containers.get(self.HUB_NAME)
+            hub = self.client.containers.get(self.settings.HUB_NAME)
             if hub.status != "running":
-                logging.info(f"{self.HUB_NAME} container found but not running, restarting.")
+                logging.info(
+                    f"{self.settings.HUB_NAME} container found but not running, restarting."
+                )
                 hub.restart()
-                logging.info(f"{self.HUB_NAME} container restarted.")
+                logging.info(f"{self.settings.HUB_NAME} container restarted.")
             else:
-                logging.info(f"{self.HUB_NAME} container is already running.")
+                logging.info(f"{self.settings.HUB_NAME} container is already running.")
         except NotFound:
-            logging.info(f"{self.HUB_NAME} container not found, creating.")
+            logging.info(f"{self.settings.HUB_NAME} container not found, creating.")
             self.client.containers.run(
                 "selenium/hub:4.18.1",
-                name=self.HUB_NAME,
+                name=self.settings.HUB_NAME,
                 detach=True,
-                network=self.NETWORK_NAME,
-                ports={f"{self.settings.SELENIUM_HUB_PORT}/tcp": self.settings.SELENIUM_HUB_PORT},
+                network=self.settings.docker.DOCKER_NETWORK_NAME,
+                ports={
+                    f"{self.settings.selenium_hub.SELENIUM_HUB_PORT}/tcp": self.settings.selenium_hub.SELENIUM_HUB_PORT
+                },
                 environment={
-                    "SE_EVENT_BUS_HOST": self.HUB_NAME,
+                    "SE_EVENT_BUS_HOST": self.settings.HUB_NAME,
                     "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                     "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
-                    "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS),
+                    "SE_NODE_MAX_SESSIONS": str(self.settings.selenium_hub.SE_NODE_MAX_SESSIONS),
                     "SE_NODE_OVERRIDE_MAX_SESSIONS": "true",
-                    "SE_VNC_NO_PASSWORD": str(self.settings.SE_VNC_NO_PASSWORD),
+                    "SE_VNC_NO_PASSWORD": self.settings.selenium_hub.SE_VNC_NO_PASSWORD_STR,
                     "SE_VNC_PASSWORD": str(
-                        self.settings.SELENIUM_HUB_VNC_PASSWORD.get_secret_value()
+                        self.settings.selenium_hub.SELENIUM_HUB_VNC_PASSWORD.get_secret_value()
                     ),
-                    "SE_VNC_VIEW_ONLY": str(self.settings.SELENIUM_HUB_VNC_VIEW_ONLY),
-                    "SE_OPTS": f"--username {self.settings.SELENIUM_HUB_USER.get_secret_value()} \
-                        --password {self.settings.SELENIUM_HUB_PASSWORD.get_secret_value()}",
+                    "SE_VNC_VIEW_ONLY": str(
+                        self.settings.selenium_hub.SELENIUM_HUB_VNC_VIEW_ONLY_STR
+                    ),
+                    "SE_OPTS": f"--username {self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()} \
+                        --password {self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()}",
                 },
                 mem_limit="256M",
                 cpu_quota=int(0.5 * 100000),  # Convert to microseconds
                 cpu_period=100000,  # 100ms period
             )
-            logging.info(f"{self.HUB_NAME} container created and started.")
+            logging.info(f"{self.settings.HUB_NAME} container created and started.")
         except APIError as e:
-            logging.error(f"Docker API error ensuring {self.HUB_NAME} container: {e}")
+            logging.error(f"Docker API error ensuring {self.settings.HUB_NAME} container: {e}")
             return False
         except Exception as e:
-            logging.exception(f"Unexpected error ensuring {self.HUB_NAME} container: {e}")
+            logging.exception(f"Unexpected error ensuring {self.settings.HUB_NAME} container: {e}")
             return False
 
         return True
@@ -165,16 +178,21 @@ class DockerHubBackend(HubBackend):
                 container = self.client.containers.run(
                     config.image,
                     detach=True,
-                    network=self.NETWORK_NAME,
-                    labels={self.NODE_LABEL: "true", self.BROWSER_LABEL: browser_type},
+                    network=self.settings.docker.DOCKER_NETWORK_NAME,
+                    labels={
+                        self.settings.NODE_LABEL: "true",
+                        self.settings.BROWSER_LABEL: browser_type,
+                    },
                     environment={
-                        "SE_EVENT_BUS_HOST": self.HUB_NAME,
-                        "SE_PORT": str(self.settings.SELENIUM_HUB_PORT),
+                        "SE_EVENT_BUS_HOST": self.settings.HUB_NAME,
+                        "SE_PORT": str(self.settings.selenium_hub.SELENIUM_HUB_PORT),
                         "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                         "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
-                        "SE_NODE_MAX_SESSIONS": str(self.settings.SE_NODE_MAX_SESSIONS),
-                        "SE_OPTS": f"--username {self.settings.SELENIUM_HUB_USER.get_secret_value()} \
-                        --password {self.settings.SELENIUM_HUB_PASSWORD.get_secret_value()}",
+                        "SE_NODE_MAX_SESSIONS": str(
+                            self.settings.selenium_hub.SE_NODE_MAX_SESSIONS
+                        ),
+                        "SE_OPTS": f"--username {self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()} \
+                        --password {self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()}",
                     },
                     mem_limit=config.resources.memory,
                     cpu_quota=int(float(config.resources.cpu) * 100000),  # Convert to microseconds

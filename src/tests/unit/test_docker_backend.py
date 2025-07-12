@@ -4,8 +4,8 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from app.core.models import BrowserConfig, ContainerResources
-from app.services.selenium_hub.docker_backend import DockerHubBackend
+from app.services.selenium_hub.core.docker_backend import DockerHubBackend
+from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
 from docker.errors import APIError
 
 
