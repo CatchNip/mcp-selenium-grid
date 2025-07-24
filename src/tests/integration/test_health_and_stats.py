@@ -1,7 +1,5 @@
 """Integration tests for health check endpoint."""
 
-from typing import Dict
-
 import pytest
 from app.models import HealthStatus
 from fastapi import status
@@ -11,7 +9,7 @@ from pytest import FixtureRequest
 
 @pytest.mark.integration
 def test_health_check_endpoint(
-    client: TestClient, auth_headers: Dict[str, str], request: FixtureRequest
+    client: TestClient, auth_headers: dict[str, str], request: FixtureRequest
 ) -> None:
     """Test health check endpoint returns correct status and deployment mode."""
     response = client.get("/health", headers=auth_headers)
@@ -38,7 +36,7 @@ def test_health_check_requires_auth(client: TestClient) -> None:
 
 @pytest.mark.integration
 def test_hub_stats_endpoint(
-    client: TestClient, auth_headers: Dict[str, str], request: FixtureRequest
+    client: TestClient, auth_headers: dict[str, str], request: FixtureRequest
 ) -> None:
     """Test the hub stats endpoint."""
     response = client.get("/stats", headers=auth_headers)

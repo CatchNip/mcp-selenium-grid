@@ -6,14 +6,14 @@ api_token: CHANGE_ME
 allowed_origins:
   - http://localhost:8000
 
-selenium_hub:
-  se_node_max_sessions: 1
-  selenium_hub_user: user
-  selenium_hub_password: CHANGE_ME
-  selenium_hub_vnc_password: CHANGE_ME
-  selenium_hub_vnc_view_only: false
-  selenium_hub_vnc_port: 7900
+selenium_grid:
   max_browser_instances: 10
+  se_node_max_sessions: 1
+  user: user
+  password: CHANGE_ME
+  vnc_password: CHANGE_ME
+  vnc_view_only: false
+  vnc_port: 7900
   browser_configs:
     chrome:
       image: selenium/node-chrome:4.18.1
@@ -33,9 +33,10 @@ selenium_hub:
       resources:
         memory: "1G"
         cpu: "0.5"
-
 kubernetes:
-  k8s_kubeconfig: ~/.kube/config-local-k3s # must exist (check the README.md)
-  k8s_context: k3s-selenium-grid # must exist (check the README.md)
-  k8s_namespace: selenium-grid-dev
-  k8s_selenium_grid_service_name: selenium-grid
+  kubeconfig: ~/.kube/config-local-k3s
+  context: k3s-selenium-grid
+  namespace: selenium-grid-dev
+  selenium_grid_service_name: selenium-grid
+  retry_delay_seconds: 2
+  max_retries: 5

@@ -12,7 +12,7 @@ class PortForwardManager:
         namespace: str,
         local_port: int,
         remote_port: int,
-        check_health: Callable[[], Awaitable[bool]],
+        check_health: Callable[..., Awaitable[bool]],
         kubeconfig: str = "",
         context: str = "",
         max_retries: int = 5,

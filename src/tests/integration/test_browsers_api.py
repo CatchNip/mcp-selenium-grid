@@ -1,6 +1,6 @@
 """Test suite for MCP browser endpoints."""
 
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from app.routers.browsers.models import BrowserResponseStatus
@@ -22,7 +22,7 @@ async def test_create_browsers_requires_auth(client: TestClient) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_create_browsers_endpoint(client: TestClient, auth_headers: Dict[str, str]) -> None:
+async def test_create_browsers_endpoint(client: TestClient, auth_headers: dict[str, str]) -> None:
     """Test browser creation endpoint."""
     BROWSER_COUNT = 2
 
@@ -48,7 +48,7 @@ async def test_create_browsers_endpoint(client: TestClient, auth_headers: Dict[s
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_create_browsers_validates_count(
-    client: TestClient, auth_headers: Dict[str, str]
+    client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     """Test browser count validation."""
     response = client.post(
@@ -63,7 +63,7 @@ async def test_create_browsers_validates_count(
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_create_browsers_validates_type(
-    client: TestClient, auth_headers: Dict[str, str]
+    client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     """Test browser type validation."""
     response = client.post(
@@ -89,7 +89,7 @@ async def test_delete_browsers_requires_auth(client: TestClient) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_delete_browsers_endpoint(client: TestClient, auth_headers: Dict[str, str]) -> None:
+async def test_delete_browsers_endpoint(client: TestClient, auth_headers: dict[str, str]) -> None:
     """Test browser deletion endpoint for successfully deleting browsers."""
     # 1. Create a browser to get an ID
     create_response = client.post(
@@ -119,7 +119,7 @@ async def test_delete_browsers_endpoint(client: TestClient, auth_headers: Dict[s
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_delete_browsers_non_existent_id(
-    client: TestClient, auth_headers: Dict[str, str]
+    client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     """Test deleting a browser with a non-existent ID."""
     non_existent_id = "non-existent-browser-id-12345"
@@ -138,7 +138,7 @@ async def test_delete_browsers_non_existent_id(
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_delete_browsers_empty_list_of_ids(
-    client: TestClient, auth_headers: Dict[str, str]
+    client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     """Test deleting browsers with an empty list of IDs."""
     delete_response = client.post(
@@ -155,7 +155,7 @@ async def test_delete_browsers_empty_list_of_ids(
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_delete_browsers_mixed_existent_and_non_existent_ids(
-    client: TestClient, auth_headers: Dict[str, str]
+    client: TestClient, auth_headers: dict[str, str]
 ) -> None:
     """Test deleting browsers with a mix of existent and non-existent IDs."""
     # 1. Create a browser to get an ID
@@ -195,7 +195,7 @@ async def test_delete_browsers_mixed_existent_and_non_existent_ids(
     ],
 )
 async def test_delete_browsers_invalid_input_payload(
-    client: TestClient, auth_headers: Dict[str, str], invalid_payload: Dict[Any, Any]
+    client: TestClient, auth_headers: dict[str, str], invalid_payload: dict[Any, Any]
 ) -> None:
     """Test delete browsers endpoint with various invalid input payloads."""
     response = client.post("/api/v1/browsers/delete", json=invalid_payload, headers=auth_headers)

@@ -162,7 +162,7 @@ async def test_create_browsers_with_retries(
     """Test that create_browsers retries and succeeds after failures."""
     backend = k8s_backend
     api_error = ApiException(status=500, reason="Internal Server Error")
-    side_effects = [api_error] * (backend.settings.kubernetes.K8S_MAX_RETRIES - 1) + [MagicMock()]
+    side_effects = [api_error] * (backend.settings.kubernetes.MAX_RETRIES - 1) + [MagicMock()]
     mocker.patch.object(backend.k8s_core, "create_namespaced_pod", side_effect=side_effects)
     browser_configs = {
         "chrome": BrowserConfig(

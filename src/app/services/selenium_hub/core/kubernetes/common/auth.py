@@ -28,7 +28,7 @@ def get_encoded_auth(settings: Any) -> str:
         >>> header = f"Basic {auth}"
         >>> # Use in HTTP headers: {'Authorization': header}
     """
-    username = settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()
-    password = settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()
+    username = settings.selenium_grid.USER.get_secret_value()
+    password = settings.selenium_grid.PASSWORD.get_secret_value()
     credentials = f"{username}:{password}"
     return base64.b64encode(credentials.encode()).decode()

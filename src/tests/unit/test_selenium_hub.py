@@ -1,6 +1,6 @@
 """Unit tests for SeleniumHub service."""
 
-from typing import Any, AsyncGenerator, Callable, List
+from typing import Any, AsyncGenerator, Callable
 
 import httpx
 import pytest
@@ -13,7 +13,7 @@ from app.services.selenium_hub.core.kubernetes import KubernetesHubBackend
 from app.services.selenium_hub.models import DeploymentMode
 from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
 from app.services.selenium_hub.models.kubernetes_settings import KubernetesSettings
-from app.services.selenium_hub.models.selenium_settings import SeleniumHubSettings
+from app.services.selenium_hub.models.selenium_settings import SeleniumGridSettings
 from pydantic import SecretStr
 from pytest_mock import MockerFixture
 
@@ -26,7 +26,9 @@ MOCK_K8S_BROWSER_ID = "mock-k8s-browser-id"
 
 # Fixtures creator
 def generate_selenium_fixture(
-    backend_cls: Any, mock_browser_id: str, settings_arg_name: str
+    backend_cls: type[DockerHubBackend] | type[KubernetesHubBackend],
+    mock_browser_id: str,
+    settings_arg_name: str,
 ) -> Callable[..., AsyncGenerator[SeleniumHub, None]]:
     """
     Generate a fixture for SeleniumHub with a specific backend.
@@ -47,7 +49,7 @@ def generate_selenium_fixture(
         # Common backend method mocks
         ensure_hub_running_mock = mocker.AsyncMock(return_value=True)
 
-        async def generate_browsers_id(count: int, *args: Any, **kwargs: Any) -> List[str]:
+        async def generate_browsers_id(count: int, *args: Any, **kwargs: Any) -> list[str]:
             if count == 1:
                 return [mock_browser_id]
             return [f"{mock_browser_id}-{i}" for i in range(count)]
@@ -187,7 +189,7 @@ async def test_create_browsers(
     result = await hub.create_browsers(browser_type="chrome", count=1)
     assert result[0] == expected_browser_id
     hub._manager.backend.create_browsers.assert_called_once_with(  # type: ignore
-        1, "chrome", hub.settings.selenium_hub.BROWSER_CONFIGS
+        1, "chrome", hub.settings.selenium_grid.BROWSER_CONFIGS
     )
 
 
@@ -242,9 +244,8 @@ async def test_create_browser(
         The create_browsers method should return a list containing the expected browser ID.
     """
     browser_ids = await hub.create_browsers(browser_type="chrome", count=1)
-    assert isinstance(browser_ids, list)
+
     assert len(browser_ids) == 1
-    assert isinstance(browser_ids[0], str)
     assert browser_ids[0] == expected_browser_id
 
 
@@ -312,7 +313,7 @@ async def test_create_browsers_handles_max_instances(
     Expected:
         If should_raise is True, the create_browsers method should raise a ValueError. Otherwise, it should return a list of browser IDs.
     """
-    selenium_hub_docker_backend.settings.selenium_hub.MAX_BROWSER_INSTANCES = max_instances
+    selenium_hub_docker_backend.settings.selenium_grid.MAX_BROWSER_INSTANCES = max_instances
     if should_raise:
         with pytest.raises(ValueError, match="Maximum browser instances exceeded"):
             await selenium_hub_docker_backend.create_browsers(
@@ -363,6 +364,7 @@ async def test_ensure_k8s_hub_creates_namespace(selenium_hub_k8s_backend: Seleni
         The ensure_hub_running method should return True and be called once.
     """
     ensure_hub_running_mock: Any = selenium_hub_k8s_backend._manager.backend.ensure_hub_running
+
     ensure_hub_running_mock.reset_mock()
     result = await selenium_hub_k8s_backend.ensure_hub_running()
     assert result is True
@@ -387,9 +389,9 @@ async def test_singleton_behavior() -> None:
         DEPLOYMENT_MODE=DeploymentMode.DOCKER,
         API_V1_STR="/api/v1",
         API_TOKEN=SecretStr("test-token"),
-        selenium_hub=SeleniumHubSettings(
-            SELENIUM_HUB_USER=SecretStr("user"),
-            SELENIUM_HUB_PASSWORD=SecretStr("pass"),
+        selenium_grid=SeleniumGridSettings(
+            USER=SecretStr("user"),
+            PASSWORD=SecretStr("pass"),
             MAX_BROWSER_INSTANCES=2,
             SE_NODE_MAX_SESSIONS=1,
             BROWSER_CONFIGS={
@@ -401,9 +403,9 @@ async def test_singleton_behavior() -> None:
             },
         ),
         kubernetes=KubernetesSettings(
-            K8S_NAMESPACE="selenium-grid",
-            K8S_RETRY_DELAY_SECONDS=2,
-            K8S_MAX_RETRIES=5,
+            NAMESPACE="selenium-grid",
+            RETRY_DELAY_SECONDS=2,
+            MAX_RETRIES=5,
         ),
         BACKEND_CORS_ORIGINS=["http://localhost:8000"],
     )
@@ -420,5 +422,7 @@ async def test_singleton_behavior() -> None:
 
     # Verify that creating without settings on first initialization fails
     reset_selenium_hub_singleton()
-    with pytest.raises(ValueError, match="Settings must be provided for first initialization"):
+    with pytest.raises(ValueError) as exc_info:
         SeleniumHub()
+
+    assert str(exc_info.value) == "settings must be provided for first initialization"

@@ -1,6 +1,6 @@
 """Pytest configuration file."""
 
-from typing import Any, Dict, Generator, Optional, Tuple, cast
+from typing import Any, Generator, Optional, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -135,11 +135,11 @@ def docker_hub_settings(mocker: MockerFixture) -> Settings:
     settings.docker.DOCKER_NETWORK_NAME = "test-network"
 
     # Selenium Hub Settings (selenium_hub attribute) - only those used by tests
-    settings.selenium_hub.SELENIUM_HUB_USER = SecretStr("test-user")
-    settings.selenium_hub.SELENIUM_HUB_PASSWORD = SecretStr("test-password")
-    settings.selenium_hub.SELENIUM_HUB_PORT = 4444
-    settings.selenium_hub.MAX_BROWSER_INSTANCES = 8
-    settings.selenium_hub.BROWSER_CONFIGS = {
+    settings.selenium_grid.USER = SecretStr("test-user")
+    settings.selenium_grid.PASSWORD = SecretStr("test-password")
+    settings.selenium_grid.SELENIUM_HUB_PORT = 4444
+    settings.selenium_grid.MAX_BROWSER_INSTANCES = 8
+    settings.selenium_grid.BROWSER_CONFIGS = {
         "chrome": BrowserConfig(
             image="selenium/node-chrome:latest",
             resources=ContainerResources(memory="512M", cpu="0.5"),
@@ -168,7 +168,7 @@ def docker_backend(
 
 
 @pytest.fixture
-def mock_k8s_apis(mocker: MockerFixture) -> Tuple[MagicMock, MagicMock]:
+def mock_k8s_apis(mocker: MockerFixture) -> tuple[MagicMock, MagicMock]:
     """
     Patches CoreV1Api and AppsV1Api so they use MagicMocks for the entire session.
     """
@@ -222,11 +222,11 @@ def k8s_hub_settings(mocker: MockerFixture) -> Settings:
     settings.DEPLOYMENT_MODE = DeploymentMode.KUBERNETES
 
     # Selenium Hub Settings (selenium_hub attribute) - only those used by tests
-    settings.selenium_hub.SELENIUM_HUB_USER = SecretStr("test-user")
-    settings.selenium_hub.SELENIUM_HUB_PASSWORD = SecretStr("test-password")
-    settings.selenium_hub.MAX_BROWSER_INSTANCES = 8
-    settings.selenium_hub.SELENIUM_HUB_PORT = 4444
-    settings.selenium_hub.BROWSER_CONFIGS = {
+    settings.selenium_grid.USER = SecretStr("test-user")
+    settings.selenium_grid.PASSWORD = SecretStr("test-password")
+    settings.selenium_grid.MAX_BROWSER_INSTANCES = 8
+    settings.selenium_grid.SELENIUM_HUB_PORT = 4444
+    settings.selenium_grid.BROWSER_CONFIGS = {
         "chrome": BrowserConfig(
             image="selenium/node-chrome:latest",
             resources=ContainerResources(memory="512M", cpu="0.5"),
@@ -235,9 +235,9 @@ def k8s_hub_settings(mocker: MockerFixture) -> Settings:
     }
 
     # Kubernetes Settings (kubernetes attribute) - only those used by tests
-    settings.kubernetes.K8S_NAMESPACE = "test-namespace"
-    settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "test-service-name"
-    settings.kubernetes.K8S_MAX_RETRIES = 3
+    settings.kubernetes.NAMESPACE = "test-namespace"
+    settings.kubernetes.SELENIUM_GRID_SERVICE_NAME = "test-service-name"
+    settings.kubernetes.MAX_RETRIES = 3
 
     # Constants for resource names - only those used by tests
     settings.NODE_LABEL = "selenium-node"
@@ -320,15 +320,14 @@ def selenium_hub_basic_auth_headers() -> BasicAuth:
     """Fixture to provide HTTP Basic Auth for Selenium Hub."""
     settings = get_settings()
     return BasicAuth(
-        settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value(),
-        settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value(),
+        settings.selenium_grid.USER.get_secret_value(),
+        settings.selenium_grid.PASSWORD.get_secret_value(),
     )
 
 
 # ==============================================================================
 # E2E TEST FIXTURES
 # ==============================================================================
-
 
 # ==============================================================================
 # SHARED TEST FIXTURES
@@ -361,6 +360,6 @@ def reset_selenium_hub_singleton() -> None:
 
 
 @pytest.fixture
-def auth_headers() -> Dict[str, str]:
+def auth_headers() -> dict[str, str]:
     """Create authentication headers for API requests."""
     return {"Authorization": f"Bearer {get_settings().API_TOKEN.get_secret_value()}"}

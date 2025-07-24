@@ -1,6 +1,6 @@
 """Browser management endpoints for MCP Server."""
 
-from typing import Annotated, List
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -34,29 +34,29 @@ async def create_browsers(
 ) -> CreateBrowserResponse:
     """Create browser instances in Selenium Grid."""
     if (
-        settings.selenium_hub.MAX_BROWSER_INSTANCES
-        and request.count > settings.selenium_hub.MAX_BROWSER_INSTANCES
+        settings.selenium_grid.MAX_BROWSER_INSTANCES
+        and request.count > settings.selenium_grid.MAX_BROWSER_INSTANCES
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximum allowed browser instances is {settings.selenium_hub.MAX_BROWSER_INSTANCES}",
+            detail=f"Maximum allowed browser instances is {settings.selenium_grid.MAX_BROWSER_INSTANCES}",
         )
 
     # Check if requested browser type is available in configs before proceeding
-    if request.browser_type not in settings.selenium_hub.BROWSER_CONFIGS:
+    if request.browser_type not in settings.selenium_grid.BROWSER_CONFIGS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported browser type: {request.browser_type}. Available: {list(settings.selenium_hub.BROWSER_CONFIGS.keys())}",
+            detail=f"Unsupported browser type: {request.browser_type}. Available: {list(settings.selenium_grid.BROWSER_CONFIGS.keys())}",
         )
 
     hub = SeleniumHub()  # This will return the singleton instance
     try:
-        browser_ids: List[str] = await hub.create_browsers(
+        browser_ids: list[str] = await hub.create_browsers(
             count=request.count,
             browser_type=request.browser_type,
         )
-        browser_config: BrowserConfig = settings.selenium_hub.BROWSER_CONFIGS[request.browser_type]
-        browsers: List[BrowserInstance] = [
+        browser_config: BrowserConfig = settings.selenium_grid.BROWSER_CONFIGS[request.browser_type]
+        browsers: list[BrowserInstance] = [
             BrowserInstance(id=bid, type=request.browser_type, resources=browser_config.resources)
             for bid in browser_ids
         ]
@@ -69,7 +69,7 @@ async def create_browsers(
         import logging  # noqa: PLC0415
 
         logging.error(
-            f"Exception in create_browsers: {e}. BROWSER_CONFIGS: {settings.selenium_hub.BROWSER_CONFIGS}"
+            f"Exception in create_browsers: {e}. BROWSER_CONFIGS: {settings.selenium_grid.BROWSER_CONFIGS}"
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -100,7 +100,7 @@ async def delete_browsers(
         )
 
     hub = SeleniumHub()
-    deleted_ids: List[str] = await hub.delete_browsers(request.browsers_ids)
+    deleted_ids: list[str] = await hub.delete_browsers(request.browsers_ids)
 
     # Remove from app state if deletion was successful
     count_deleted_ids = len(deleted_ids)
@@ -110,7 +110,7 @@ async def delete_browsers(
             for id in deleted_ids:
                 app_state.browsers_instances.pop(id, None)
 
-        messages: List[str] = [f"{count_deleted_ids} browser(s) deleted successfully."]
+        messages: list[str] = [f"{count_deleted_ids} browser(s) deleted successfully."]
 
         not_foud: int = len(request.browsers_ids) - count_deleted_ids
         if not_foud > 0:

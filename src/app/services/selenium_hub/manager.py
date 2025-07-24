@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, ClassVar, Dict, List, Type
+from typing import Any, ClassVar
 
 from app.services.selenium_hub.models import DeploymentMode
 
@@ -12,14 +12,14 @@ from .models.general_settings import SeleniumHubGeneralSettings
 class SeleniumHubManager:
     """Selects and delegates to the correct backend for cleanup and manages retries."""
 
-    _BACKEND_MAP: ClassVar[Dict[DeploymentMode, Type[HubBackend]]] = {
+    _BACKEND_MAP: ClassVar[dict[DeploymentMode, type[HubBackend]]] = {
         DeploymentMode.DOCKER: DockerHubBackend,
         DeploymentMode.KUBERNETES: KubernetesHubBackend,
     }
 
     def __init__(self, settings: SeleniumHubGeneralSettings) -> None:
         try:
-            backend_cls: Type[HubBackend] = self._BACKEND_MAP[settings.DEPLOYMENT_MODE]
+            backend_cls: type[HubBackend] = self._BACKEND_MAP[settings.DEPLOYMENT_MODE]
         except KeyError:
             valid = ", ".join(mode.value for mode in self._BACKEND_MAP.keys())
             raise ValueError(
@@ -50,13 +50,13 @@ class SeleniumHubManager:
         self,
         count: int,
         browser_type: str,
-        browser_configs: Dict[str, Any],
-    ) -> List[str]:
+        browser_configs: dict[str, Any],
+    ) -> list[str]:
         if not await self.ensure_hub_running():
             raise RuntimeError("Failed to ensure Selenium Hub is running")
         return await self.backend.create_browsers(count, browser_type, browser_configs)
 
-    async def delete_browsers(self, browser_ids: List[str]) -> List[str]:
+    async def delete_browsers(self, browser_ids: list[str]) -> list[str]:
         """
         Delete multiple browser containers by their IDs in parallel. Returns a list of successfully deleted IDs.
         """

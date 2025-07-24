@@ -1,29 +1,36 @@
 import logging
 import time
 from os import environ
-from typing import Any, Optional
+from typing import Optional
 
 from kubernetes.client import CoreV1Api
 
+from ...models.general_settings import SeleniumHubGeneralSettings
 from .common.decorators import ErrorStrategy, handle_kubernetes_exceptions
 
 
 class KubernetesUrlResolver:
     """Handles URL resolution for different Kubernetes environments."""
 
-    def __init__(self, settings: Any, k8s_core: CoreV1Api, is_kind: bool) -> None:
+    def __init__(
+        self, settings: SeleniumHubGeneralSettings, k8s_core: CoreV1Api, is_kind: bool
+    ) -> None:
         self.settings = settings
         self.k8s_core = k8s_core
         self._is_kind = is_kind
 
     def get_hub_url(self) -> str:
-        FALLBACK_URL = f"http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}"
+        FALLBACK_URL = f"http://localhost:{self.settings.selenium_grid.SELENIUM_HUB_PORT}"
         if "KUBERNETES_SERVICE_HOST" in environ:
             return self._get_in_cluster_url()
+        # For KinD environments, use port-forwarded URL since port-forward is used
+        if self._is_kind:
+            logging.info(f"Using port-forwarded URL for KinD: {FALLBACK_URL}")
+            return FALLBACK_URL
         return self._get_nodeport_url(FALLBACK_URL)
 
     def _get_in_cluster_url(self) -> str:
-        url = f"http://{self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME}.{self.settings.kubernetes.K8S_NAMESPACE}.svc.cluster.local:{self.settings.selenium_hub.SELENIUM_HUB_PORT}"
+        url = f"http://{self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME}.{self.settings.kubernetes.NAMESPACE}.svc.cluster.local:{self.settings.selenium_grid.SELENIUM_HUB_PORT}"
         logging.info(f"Using in-cluster DNS for Selenium Hub URL: {url}")
         return url
 
@@ -51,11 +58,11 @@ class KubernetesUrlResolver:
     @handle_kubernetes_exceptions(ErrorStrategy.STRICT)
     def _try_get_nodeport_url(self, attempt: int, max_retries: int) -> Optional[str]:
         logging.info(
-            f"Attempt {attempt + 1}/{max_retries}: Getting NodePort for service {self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME} in namespace {self.settings.kubernetes.K8S_NAMESPACE}"
+            f"Attempt {attempt + 1}/{max_retries}: Getting NodePort for service {self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME} in namespace {self.settings.kubernetes.NAMESPACE}"
         )
         service = self.k8s_core.read_namespaced_service(
-            name=self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
-            namespace=self.settings.kubernetes.K8S_NAMESPACE,
+            name=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
+            namespace=self.settings.kubernetes.NAMESPACE,
         )
         logging.info(f"Service type: {service.spec.type if service.spec else 'None'}")
         logging.info(

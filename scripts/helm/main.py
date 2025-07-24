@@ -52,7 +52,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         kubeconfig: Optional[Path] = typer.Option(
             None,
             "--kubeconfig",
-            help="Path to the kubeconfig file. Overrides K8S_KUBECONFIG from settings.",
+            help="Path to the kubeconfig file. Overrides KUBECONFIG from settings.",
         ),
         debug: bool = typer.Option(
             False,
@@ -64,7 +64,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
 
         # Use settings for default release_name if not provided
         effective_release_name = (
-            release_name if release_name else settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME
+            release_name if release_name else settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
         )
 
         # Validate inputs using Pydantic models
@@ -109,8 +109,11 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
                 "--install",
                 str(release),
                 str(chart.path),
-                # Do NOT include --namespace or --create-namespace if the chart manages the Namespace resource
-                # Namespace will be created by the chart using the value passed via --set namespace=...
+                # Use --namespace to ensure release metadata is stored in the same namespace as resources
+                # Use --create-namespace to ensure namespace exists before chart creates resources
+                "--namespace",
+                str(namespace_obj),
+                "--create-namespace",
             ]
 
             # Add sensitive values if any
@@ -161,7 +164,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         kubeconfig: Optional[Path] = typer.Option(
             None,
             "--kubeconfig",
-            help="Path to the kubeconfig file. Overrides K8S_KUBECONFIG from settings.",
+            help="Path to the kubeconfig file. Overrides KUBECONFIG from settings.",
         ),
         debug: bool = typer.Option(
             False,
@@ -177,7 +180,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         settings = get_settings()
         # Use settings for default release_name if not provided
         effective_release_name = (
-            release_name if release_name else settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME
+            release_name if release_name else settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
         )
 
         # Validate inputs

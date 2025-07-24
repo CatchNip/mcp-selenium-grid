@@ -110,9 +110,9 @@ class KubernetesResourceManager:
         self.k8s_settings = k8s_settings
         self.k8s_core = k8s_core
         self.k8s_apps = k8s_apps
-        self.namespace = k8s_settings.K8S_NAMESPACE
-        self.max_retries = k8s_settings.K8S_MAX_RETRIES
-        self.retry_delay = k8s_settings.K8S_RETRY_DELAY_SECONDS
+        self.namespace = k8s_settings.NAMESPACE
+        self.max_retries = k8s_settings.MAX_RETRIES
+        self.retry_delay = k8s_settings.RETRY_DELAY_SECONDS
 
     @handle_kubernetes_exceptions(ErrorStrategy.STRICT)
     def read_resource(self, resource_type: ResourceType, name: str) -> KubernetesResource:

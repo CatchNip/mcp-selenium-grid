@@ -36,10 +36,10 @@ uv run helm-selenium-grid deploy [OPTIONS]
 - `--release-name TEXT`: Name of the Helm release.
   - Default: `selenium-grid`
 - `--namespace TEXT`: Kubernetes namespace.
-  - Default: Value from `config.yaml` (`K8S_NAMESPACE`)
+  - Default: Value from `config.yaml` (`NAMESPACE`)
 - `--context TEXT`: Kubernetes context to use (e.g., 'k3s'). Overrides context from `config.yaml`.
-  - Default: Value from `config.yaml` (`K8S_CONTEXT`)
-- `--kubeconfig PATH`: Path to the kubeconfig file. Overrides `K8S_KUBECONFIG` from settings.
+  - Default: Value from `config.yaml` (`CONTEXT`)
+- `--kubeconfig PATH`: Path to the kubeconfig file. Overrides `KUBECONFIG` from settings.
   - Default: None
 - `--debug`: Enable debug output.
   - Default: `False`
@@ -70,10 +70,10 @@ uv run helm-selenium-grid uninstall [OPTIONS]
 - `--release-name TEXT`: Name of the Helm release to uninstall.
   - Default: `selenium-grid`
 - `--namespace TEXT`: Kubernetes namespace.
-  - Default: Value from `config.yaml` (`K8S_NAMESPACE`)
+  - Default: Value from `config.yaml` (`NAMESPACE`)
 - `--context TEXT`: Kubernetes context to use. Overrides context from `config.yaml`.
-  - Default: Value from `config.yaml` (`K8S_CONTEXT`)
-- `--kubeconfig PATH`: Path to the kubeconfig file. Overrides `K8S_KUBECONFIG` from settings.
+  - Default: Value from `config.yaml` (`CONTEXT`)
+- `--kubeconfig PATH`: Path to the kubeconfig file. Overrides `KUBECONFIG` from settings.
   - Default: None
 - `--delete-namespace`: Delete the Kubernetes namespace after uninstalling the release.
   - Default: `False`

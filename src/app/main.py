@@ -17,7 +17,6 @@ from app.models import HealthCheckResponse, HealthStatus, HubStatusResponse
 from app.routers.browsers import router as browsers_router
 from app.routers.selenium_proxy import router as selenium_proxy_router
 from app.services.selenium_hub import SeleniumHub
-from app.services.selenium_hub.manager import SeleniumHubManager
 
 
 def create_application() -> FastAPI:
@@ -53,8 +52,9 @@ def create_application() -> FastAPI:
         yield
 
         # --- Server shutdown: remove Selenium Hub resources (Docker or Kubernetes) ---
-        manager = SeleniumHubManager(settings)
-        manager.cleanup()
+        # manager = SeleniumHubManager(settings)
+        # manager.cleanup()
+        hub.cleanup()
 
     app = FastAPI(
         title=settings.PROJECT_NAME,
@@ -117,7 +117,7 @@ def create_application() -> FastAPI:
             hub_running=is_running,
             hub_healthy=is_healthy,
             deployment_mode=settings.DEPLOYMENT_MODE,
-            max_instances=settings.selenium_hub.MAX_BROWSER_INSTANCES,
+            max_instances=settings.selenium_grid.MAX_BROWSER_INSTANCES,
             browsers=browsers,
         )
 

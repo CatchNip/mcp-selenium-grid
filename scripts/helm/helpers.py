@@ -1,6 +1,6 @@
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 from app.core.settings import Settings
 from kubernetes.utils import parse_quantity  # type: ignore
@@ -13,23 +13,21 @@ def resolve_namespace_context_and_kubeconfig(
     cli_kube_context_arg: Optional[str],
     cli_kubeconfig_arg: Optional[Path],
     settings: Settings,
-) -> Tuple[K8sName, Optional[str], Optional[str]]:
+) -> tuple[K8sName, Optional[str], Optional[str]]:
     """Resolves the effective namespace and Kubernetes context."""
-    namespace_name = cli_namespace_arg or settings.kubernetes.K8S_NAMESPACE
+    namespace_name = cli_namespace_arg or settings.kubernetes.NAMESPACE
     namespace_obj = K8sName(name=namespace_name)
     effective_kube_context = (
-        cli_kube_context_arg
-        if cli_kube_context_arg is not None
-        else settings.kubernetes.K8S_CONTEXT
+        cli_kube_context_arg if cli_kube_context_arg is not None else settings.kubernetes.CONTEXT
     )
 
     resolved_kubeconfig_str: Optional[str] = None
     if cli_kubeconfig_arg is not None:
         # Typer converts the CLI argument to a Path object.
         resolved_kubeconfig_str = str(cli_kubeconfig_arg.expanduser())
-    elif settings.kubernetes.K8S_KUBECONFIG:
-        # settings.kubernetes.K8S_KUBECONFIG is a str from the config file.
-        resolved_kubeconfig_str = settings.kubernetes.K8S_KUBECONFIG
+    elif settings.kubernetes.KUBECONFIG:
+        # settings.kubernetes.KUBECONFIG is a str from the config file.
+        resolved_kubeconfig_str = settings.kubernetes.KUBECONFIG
 
     return namespace_obj, effective_kube_context, resolved_kubeconfig_str
 
@@ -51,7 +49,7 @@ def format_memory(bytes_val: Decimal) -> str:
     return f"{bytes_val}B"
 
 
-def map_config_to_helm_values(settings: Settings) -> Tuple[List[str], Dict[str, str]]:
+def map_config_to_helm_values(settings: Settings) -> tuple[list[str], dict[str, str]]:
     """Convert Settings values to Helm arguments.
 
     Args:
@@ -63,12 +61,14 @@ def map_config_to_helm_values(settings: Settings) -> Tuple[List[str], Dict[str, 
     Raises:
         ValueError: If no browser configurations are found in settings.
     """
-    if not settings.selenium_hub.BROWSER_CONFIGS:
-        raise ValueError("No browser configurations found in settings.selenium_hub.BROWSER_CONFIGS")
+    if not settings.selenium_grid.BROWSER_CONFIGS:
+        raise ValueError(
+            "No browser configurations found in settings.selenium_grid.BROWSER_CONFIGS"
+        )
 
-    first_browser = next(iter(settings.selenium_hub.BROWSER_CONFIGS.values()))
+    first_browser = next(iter(settings.selenium_grid.BROWSER_CONFIGS.values()))
 
-    limit_pods = settings.selenium_hub.MAX_BROWSER_INSTANCES + 1  # Browsers + Hub
+    limit_pods = settings.selenium_grid.MAX_BROWSER_INSTANCES + 1  # Browsers + Hub
 
     memory = parse_quantity(first_browser.resources.memory)
 
@@ -76,7 +76,7 @@ def map_config_to_helm_values(settings: Settings) -> Tuple[List[str], Dict[str, 
 
     # Build the --set arguments with only non-sensitive values
     set_args = [
-        f"namespace={settings.kubernetes.K8S_NAMESPACE}",
+        f"namespace={settings.kubernetes.NAMESPACE}",
         f"resources.limits.cpu={cpu_decimal * limit_pods * 2}",
         f"resources.limits.memory={format_memory(memory * limit_pods * 2)}",
         f"resources.limits.pods={limit_pods}",
@@ -89,7 +89,7 @@ def map_config_to_helm_values(settings: Settings) -> Tuple[List[str], Dict[str, 
     ]
 
     # Store sensitive values separately
-    sensitive_values: Dict[str, str] = {}
+    sensitive_values: dict[str, str] = {}
 
     if settings.BACKEND_CORS_ORIGINS:
         # Add network policy settings

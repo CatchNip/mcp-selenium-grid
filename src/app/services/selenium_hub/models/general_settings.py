@@ -5,25 +5,19 @@ Aggregates core configuration options, including deployment mode, hub settings,
 and references to Docker and Kubernetes settings.
 """
 
-from typing import Any, Type
+from typing import Any
 
-from pydantic import Field, field_validator
-from pydantic_settings import (
-    BaseSettings,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-    YamlConfigSettingsSource,
-)
+from pydantic import Field, PrivateAttr, field_validator
 
 from app.common import getenv
 
-from . import DeploymentMode
+from . import CustomBaseSettings, DeploymentMode
 from .docker_settings import DockerSettings
 from .kubernetes_settings import KubernetesSettings
-from .selenium_settings import SeleniumHubSettings
+from .selenium_settings import SeleniumGridSettings
 
 
-class SeleniumHubGeneralSettings(BaseSettings):
+class SeleniumHubGeneralSettings(CustomBaseSettings):
     """
     Main configuration model for the Selenium Hub service.
 
@@ -31,18 +25,13 @@ class SeleniumHubGeneralSettings(BaseSettings):
     Docker and Kubernetes environments.
     """
 
-    model_config = SettingsConfigDict(
-        yaml_file="config.yaml",
-        yaml_file_encoding="utf-8",
-        alias_generator=lambda name: name.lower(),
-        case_sensitive=False,
-        nested_model_default_partial_update=True,
-        extra="ignore",
-        env_prefix="",
+    # Private
+    _keep_original_keys: list[str] = PrivateAttr(
+        default_factory=lambda: ["selenium_grid", "kubernetes", "docker"]
     )
 
     # Deployment Mode
-    DEPLOYMENT_MODE: DeploymentMode = Field(default=DeploymentMode.DOCKER)
+    DEPLOYMENT_MODE: DeploymentMode = DeploymentMode.DOCKER
 
     @field_validator("DEPLOYMENT_MODE", mode="before")
     @classmethod
@@ -51,8 +40,8 @@ class SeleniumHubGeneralSettings(BaseSettings):
             return DeploymentMode.KUBERNETES
         return deployment_mode
 
-    # Selenium Hub Settings (delegated)
-    selenium_hub: SeleniumHubSettings = Field(default_factory=SeleniumHubSettings)
+    # Selenium Grid Settings (delegated)
+    selenium_grid: SeleniumGridSettings = Field(default_factory=SeleniumGridSettings)
 
     # Kubernetes Settings (delegated)
     kubernetes: KubernetesSettings = Field(default_factory=KubernetesSettings)
@@ -62,30 +51,6 @@ class SeleniumHubGeneralSettings(BaseSettings):
 
     # Constants for resource names
     ## Represents the K8s Deployment/Service or Docker container name for the hub
-    HUB_NAME: str = Field(default="selenium-hub")
-    NODE_LABEL: str = Field(default="selenium-node")
-    BROWSER_LABEL: str = Field(default="browser")
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: Type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[
-        PydanticBaseSettingsSource,
-        PydanticBaseSettingsSource,
-        PydanticBaseSettingsSource,
-        PydanticBaseSettingsSource,
-        YamlConfigSettingsSource,
-    ]:
-        # Make init_settings and env_settings higher priority than YAML
-        return (
-            init_settings,
-            env_settings,
-            dotenv_settings,
-            file_secret_settings,
-            YamlConfigSettingsSource(settings_cls),
-        )
+    HUB_NAME: str = "selenium-hub"
+    NODE_LABEL: str = "selenium-node"
+    BROWSER_LABEL: str = "browser"

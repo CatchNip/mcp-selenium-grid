@@ -2,5 +2,10 @@
   "python.analysis.extraPaths": ["./src/app"],
   "python.testing.pytestArgs": ["./src/tests"],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "python.analysis.diagnosticSeverityOverrides": {
+    // let mypy handle
+    "reportUnknownVariableType": false,
+    "reportUnknownArgumentType": false
+  }
 }

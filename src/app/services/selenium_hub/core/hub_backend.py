@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Any
 from urllib.parse import urljoin
 
 import httpx
@@ -49,7 +49,7 @@ class HubBackend(ABC):
         Delete a single browser by its ID. Returns True if deleted, False otherwise.
         """
 
-    async def delete_browsers(self, browser_ids: List[str]) -> List[str]:
+    async def delete_browsers(self, browser_ids: list[str]) -> list[str]:
         """
         Delete multiple browser containers by their IDs in parallel. Returns a list of successfully deleted IDs.
         """

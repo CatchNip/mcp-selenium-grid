@@ -16,15 +16,6 @@ The MCP Selenium Grid provides a REST API for creating and managing browser inst
 
 The MCP Selenium Grid provides a REST API for creating and managing browser instances. The server runs on `localhost:8000` and exposes MCP endpoints at `/mcp`.
 
-### Configuration
-
-The server uses `config.yaml` for configuration settings including:
-
-- API tokens and authentication
-- Deployment mode (Docker/Kubernetes)
-- Browser configurations and resource limits
-- Kubernetes context and namespace settings
-
 ### MCP Client Configuration
 
 To use the MCP Selenium Grid with MCP-compatible clients (like Cursor, VS Code, etc.), add the server configuration to your `mcp.json` file:
@@ -38,12 +29,12 @@ To use the MCP Selenium Grid with MCP-compatible clients (like Cursor, VS Code, 
       "env": {
         "API_TOKEN": "CHANGE_ME",
         "DEPLOYMENT_MODE": "docker",
-        "SELENIUM_HUB_USERNAME": "USER",
-        "SELENIUM_HUB_PASSWORD": "CHANGE_ME",
-        "SELENIUM_HUB_VNC_PASSWORD": "CHANGE_ME",
-        "SELENIUM_HUB_VNC_VIEW_ONLY": false,
-        "MAX_BROWSER_INSTANCES": 10,
-        "SE_NODE_MAX_SESSIONS": 1,
+        "SELENIUM_GRI__USERNAME": "USER",
+        "SELENIUM_GRID__PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_VIEW_ONLY": false,
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": 4,
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": 1,
       }
     }
   }
@@ -59,16 +50,16 @@ To use the MCP Selenium Grid with MCP-compatible clients (like Cursor, VS Code, 
       "env": {
         "API_TOKEN": "CHANGE_ME",
         "DEPLOYMENT_MODE": "kubernetes",
-        "SELENIUM_HUB_USERNAME": "USER",
-        "SELENIUM_HUB_PASSWORD": "CHANGE_ME",
-        "SELENIUM_HUB_VNC_PASSWORD": "CHANGE_ME",
-        "SELENIUM_HUB_VNC_VIEW_ONLY": false,
-        "MAX_BROWSER_INSTANCES": 10,
-        "SE_NODE_MAX_SESSIONS": 1,
-        "K8S_KUBECONFIG": "~/.kube/config-local-k3s",
-        "K8S_CONTEXT": "k3s-selenium-grid",
-        "K8S_NAMESPACE": "selenium-grid-dev",
-        "K8S_SELENIUM_GRID_SERVICE_NAME": "selenium-grid",
+        "SELENIUM_GRI__USERNAME": "USER",
+        "SELENIUM_GRID__PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_VIEW_ONLY": false,
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": 4,
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": 1,
+        "KUBERNETES__KUBECONFIG": "~/.kube/config-local-k3s",
+        "KUBERNETES__CONTEXT": "k3s-selenium-grid",
+        "KUBERNETES__NAMESPACE": "selenium-grid-dev",
+        "KUBERNETES__SELENIUM_GRID_SERVICE_NAME": "selenium-grid",
       }
     }
   }

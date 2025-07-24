@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, override
+from typing import override
 
 import docker
 from docker.errors import APIError, NotFound
@@ -18,7 +18,7 @@ class DockerHubBackend(HubBackend):
     @override
     def URL(self) -> str:
         """Base URL for the Docker Selenium Hub."""
-        return f"http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}"
+        return f"http://localhost:{self.settings.selenium_grid.SELENIUM_HUB_PORT}"
 
     def _remove_container(self, container_name: str) -> None:
         """Helper method to remove a container by name."""
@@ -117,23 +117,21 @@ class DockerHubBackend(HubBackend):
                 detach=True,
                 network=self.settings.docker.DOCKER_NETWORK_NAME,
                 ports={
-                    f"{self.settings.selenium_hub.SELENIUM_HUB_PORT}/tcp": self.settings.selenium_hub.SELENIUM_HUB_PORT
+                    f"{self.settings.selenium_grid.SELENIUM_HUB_PORT}/tcp": self.settings.selenium_grid.SELENIUM_HUB_PORT
                 },
                 environment={
                     "SE_EVENT_BUS_HOST": self.settings.HUB_NAME,
                     "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                     "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
-                    "SE_NODE_MAX_SESSIONS": str(self.settings.selenium_hub.SE_NODE_MAX_SESSIONS),
+                    "SE_NODE_MAX_SESSIONS": str(self.settings.selenium_grid.SE_NODE_MAX_SESSIONS),
                     "SE_NODE_OVERRIDE_MAX_SESSIONS": "true",
-                    "SE_VNC_NO_PASSWORD": self.settings.selenium_hub.SE_VNC_NO_PASSWORD_STR,
+                    "SE_VNC_NO_PASSWORD": self.settings.selenium_grid.SE_VNC_NO_PASSWORD_STR,
                     "SE_VNC_PASSWORD": str(
-                        self.settings.selenium_hub.SELENIUM_HUB_VNC_PASSWORD.get_secret_value()
+                        self.settings.selenium_grid.VNC_PASSWORD.get_secret_value()
                     ),
-                    "SE_VNC_VIEW_ONLY": str(
-                        self.settings.selenium_hub.SELENIUM_HUB_VNC_VIEW_ONLY_STR
-                    ),
-                    "SE_OPTS": f"--username {self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()} \
-                        --password {self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()}",
+                    "SE_VNC_VIEW_ONLY": str(self.settings.selenium_grid.VNC_VIEW_ONLY_STR),
+                    "SE_OPTS": f"--username {self.settings.selenium_grid.USER.get_secret_value()} \
+                        --password {self.settings.selenium_grid.PASSWORD.get_secret_value()}",
                 },
                 mem_limit="256M",
                 cpu_quota=int(0.5 * 100000),  # Convert to microseconds
@@ -151,11 +149,11 @@ class DockerHubBackend(HubBackend):
 
     @override
     async def create_browsers(
-        self, count: int, browser_type: str, browser_configs: Dict[str, BrowserConfig]
-    ) -> List[str]:
+        self, count: int, browser_type: str, browser_configs: dict[str, BrowserConfig]
+    ) -> list[str]:
         """Create the requested number of Selenium browser containers."""
         config: BrowserConfig = browser_configs[browser_type]
-        browser_ids: List[str] = []
+        browser_ids: list[str] = []
         for _ in range(count):
             # Ensure image exists, pull if necessary
             try:
@@ -185,14 +183,14 @@ class DockerHubBackend(HubBackend):
                     },
                     environment={
                         "SE_EVENT_BUS_HOST": self.settings.HUB_NAME,
-                        "SE_PORT": str(self.settings.selenium_hub.SELENIUM_HUB_PORT),
+                        "SE_PORT": str(self.settings.selenium_grid.SELENIUM_HUB_PORT),
                         "SE_EVENT_BUS_PUBLISH_PORT": "4442",
                         "SE_EVENT_BUS_SUBSCRIBE_PORT": "4443",
                         "SE_NODE_MAX_SESSIONS": str(
-                            self.settings.selenium_hub.SE_NODE_MAX_SESSIONS
+                            self.settings.selenium_grid.SE_NODE_MAX_SESSIONS
                         ),
-                        "SE_OPTS": f"--username {self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()} \
-                        --password {self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()}",
+                        "SE_OPTS": f"--username {self.settings.selenium_grid.USER.get_secret_value()} \
+                        --password {self.settings.selenium_grid.PASSWORD.get_secret_value()}",
                     },
                     mem_limit=config.resources.memory,
                     cpu_quota=int(float(config.resources.cpu) * 100000),  # Convert to microseconds

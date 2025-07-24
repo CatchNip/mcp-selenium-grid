@@ -1,7 +1,5 @@
 """End-to-end tests for browser workflows using real infrastructure."""
 
-from typing import Dict, List
-
 import pytest
 from app.routers.browsers.models import BrowserResponseStatus
 from fastapi import status
@@ -11,7 +9,7 @@ from pytest import FixtureRequest
 
 
 def create_browsers(
-    client: TestClient, auth_headers: Dict[str, str], count: int = 1, browser_type: str = "chrome"
+    client: TestClient, auth_headers: dict[str, str], count: int = 1, browser_type: str = "chrome"
 ) -> Response:
     response = client.post(
         "/api/v1/browsers/create",
@@ -22,7 +20,7 @@ def create_browsers(
 
 
 def delete_browsers(
-    client: TestClient, auth_headers: Dict[str, str], browsers_ids: List[str]
+    client: TestClient, auth_headers: dict[str, str], browsers_ids: list[str]
 ) -> Response:
     response = client.post(
         "/api/v1/browsers/delete",
@@ -34,7 +32,7 @@ def delete_browsers(
 
 @pytest.mark.e2e
 def test_complete_browser_lifecycle(
-    client: TestClient, auth_headers: Dict[str, str], request: FixtureRequest
+    client: TestClient, auth_headers: dict[str, str], request: FixtureRequest
 ) -> None:
     """Test complete browser lifecycle."""
     # 1. Create a browser instance
@@ -86,7 +84,7 @@ def test_complete_browser_lifecycle(
     ],
 )
 def test_error_handling(
-    client: TestClient, auth_headers: Dict[str, str], browser_type: str, expected_status: int
+    client: TestClient, auth_headers: dict[str, str], browser_type: str, expected_status: int
 ) -> None:
     """Test API error handling for browser creation."""
     response = create_browsers(client, auth_headers, browser_type=browser_type)

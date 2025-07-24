@@ -1,16 +1,18 @@
 import logging
-from typing import Any
+import os
 
 from kubernetes.client import CoreV1Api, V1ObjectMeta
 from kubernetes.config.config_exception import ConfigException
 from kubernetes.config.incluster_config import load_incluster_config
 from kubernetes.config.kube_config import load_kube_config
 
+from ...models.kubernetes_settings import KubernetesSettings
+
 
 class KubernetesConfigManager:
     """Handles Kubernetes configuration loading and cluster detection."""
 
-    def __init__(self, k8s_settings: Any) -> None:
+    def __init__(self, k8s_settings: KubernetesSettings) -> None:
         self.k8s_settings = k8s_settings
         self._is_kind = False
         self._load_config()
@@ -19,12 +21,22 @@ class KubernetesConfigManager:
     def _load_config(self) -> None:
         try:
             try:
+                logging.info("Trying in-cluster config...")
                 load_incluster_config()
+                logging.info("Loaded in-cluster config.")
             except ConfigException:
+                kubeconfig_path = self.k8s_settings.KUBECONFIG
+                logging.info(f"In-cluster config failed, trying kubeconfig: '{kubeconfig_path}'")
+                if kubeconfig_path:
+                    logging.info(f"KUBECONFIG path: {kubeconfig_path}")
+                    logging.info(f"KUBECONFIG exists: {os.path.exists(kubeconfig_path)}")
+                else:
+                    logging.info("KUBECONFIG is empty, will use default kubeconfig resolution.")
                 load_kube_config(
-                    config_file=self.k8s_settings.K8S_KUBECONFIG,
-                    context=self.k8s_settings.K8S_CONTEXT,
+                    config_file=kubeconfig_path,
+                    context=self.k8s_settings.CONTEXT,
                 )
+                logging.info(f"Loaded kubeconfig from {kubeconfig_path}")
         except Exception as e:
             logging.exception(f"Failed to load Kubernetes configuration: {e}")
             raise

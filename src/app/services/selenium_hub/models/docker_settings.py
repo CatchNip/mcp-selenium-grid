@@ -5,16 +5,14 @@ Defines configuration options specific to Docker environments, such as
 network names and container-related settings.
 """
 
-from pydantic import Field
-
-from . import CustomBaseSettings
+from . import CustomBaseModel
 
 
-class DockerSettings(CustomBaseSettings):
+class DockerSettings(CustomBaseModel):
     """
     Configuration settings for running Selenium Hub in a Docker environment.
 
     Includes options like the Docker network name and other Docker-specific parameters.
     """
 
-    DOCKER_NETWORK_NAME: str = Field(default="selenium-grid")
+    DOCKER_NETWORK_NAME: str = "selenium-grid"

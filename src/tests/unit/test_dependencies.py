@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Dict
+from typing import Annotated, Any
 
 import pytest
 from app.core.settings import Settings
@@ -15,8 +15,8 @@ app = FastAPI()
 @app.get("/test-auth")
 async def read_item(
     settings: Annotated[Settings, Depends(get_settings)],
-    user: Dict[str, str] = Depends(verify_token),
-) -> Dict[str, Any]:
+    user: dict[str, str] = Depends(verify_token),
+) -> dict[str, Any]:
     """A protected endpoint to test token verification."""
     return {"message": "Access granted", "user": user}
 
@@ -35,7 +35,7 @@ def get_settings_override_missing() -> Settings:
 
 async def verify_token_override(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     if credentials.credentials != "valid_token":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

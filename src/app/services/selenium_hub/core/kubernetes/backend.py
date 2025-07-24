@@ -2,7 +2,7 @@ import logging
 import uuid
 from os import environ
 from subprocess import Popen
-from typing import Any, Callable, Dict, List, Optional, override
+from typing import Any, Callable, Optional, override
 
 from kubernetes.client import (
     AppsV1Api,
@@ -85,14 +85,14 @@ class KubernetesHubBackend(HubBackend):
         """Clean up Selenium Hub deployment and service."""
         try:
             self.resource_manager.delete_resource(
-                ResourceType.DEPLOYMENT, self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME
+                ResourceType.DEPLOYMENT, self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
             )
         except Exception as e:
             logging.exception(f"Exception during deletion of deployment: {e}")
 
         try:
             self.resource_manager.delete_resource(
-                ResourceType.SERVICE, self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME
+                ResourceType.SERVICE, self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
             )
         except Exception as e:
             logging.exception(f"Exception during deletion of service: {e}")
@@ -101,10 +101,10 @@ class KubernetesHubBackend(HubBackend):
     def cleanup_browsers(self) -> None:
         """Clean up all browser pods."""
         logging.info(
-            f"Deleting {self.settings.NODE_LABEL} pods in namespace {self.settings.kubernetes.K8S_NAMESPACE}..."
+            f"Deleting {self.settings.NODE_LABEL} pods in namespace {self.settings.kubernetes.NAMESPACE}..."
         )
         self.k8s_core.delete_collection_namespaced_pod(
-            namespace=self.settings.kubernetes.K8S_NAMESPACE,
+            namespace=self.settings.kubernetes.NAMESPACE,
             label_selector=f"app={self.settings.NODE_LABEL}",
         )
         logging.info(f"{self.settings.NODE_LABEL} pods delete request sent.")
@@ -223,11 +223,11 @@ class KubernetesHubBackend(HubBackend):
 
                 if resource_type == ResourceType.DEPLOYMENT:
                     self.k8s_apps.create_namespaced_deployment(
-                        namespace=self.settings.kubernetes.K8S_NAMESPACE, body=resource
+                        namespace=self.settings.kubernetes.NAMESPACE, body=resource
                     )
                 elif resource_type == ResourceType.SERVICE:
                     self.k8s_core.create_namespaced_service(
-                        namespace=self.settings.kubernetes.K8S_NAMESPACE, body=resource
+                        namespace=self.settings.kubernetes.NAMESPACE, body=resource
                     )
                 elif resource_type == ResourceType.NAMESPACE:
                     self.k8s_core.create_namespace(body=resource)
@@ -240,7 +240,7 @@ class KubernetesHubBackend(HubBackend):
         """Ensure the Selenium Hub deployment exists."""
         self.ensure_resource_exists(
             ResourceType.DEPLOYMENT,
-            self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
+            self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             self._create_hub_deployment,
             self._validate_deployment_config,
         )
@@ -249,7 +249,7 @@ class KubernetesHubBackend(HubBackend):
         """Ensure the Selenium Hub service exists."""
         self.ensure_resource_exists(
             ResourceType.SERVICE,
-            self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
+            self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             self._create_hub_service,
             self._validate_service_config,
         )
@@ -258,28 +258,28 @@ class KubernetesHubBackend(HubBackend):
         """Ensure the Kubernetes namespace exists."""
         self.ensure_resource_exists(
             ResourceType.NAMESPACE,
-            self.settings.kubernetes.K8S_NAMESPACE,
+            self.settings.kubernetes.NAMESPACE,
             self._create_namespace,
             None,  # No validation needed for namespace
         )
 
     def _create_namespace(self) -> V1Namespace:
         """Create a Kubernetes Namespace object."""
-        return V1Namespace(metadata=V1ObjectMeta(name=self.settings.kubernetes.K8S_NAMESPACE))
+        return V1Namespace(metadata=V1ObjectMeta(name=self.settings.kubernetes.NAMESPACE))
 
     async def _wait_for_service_ready(self, timeout_seconds: int = 30) -> None:
         """Wait for the service to be ready and have endpoints."""
         config = WaitConfig(timeout_seconds=timeout_seconds)
         await self.resource_manager.wait_for_resource_ready(
             ResourceType.SERVICE,
-            self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
+            self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             None,  # Use default service ready check
             config,
         )
 
     async def ensure_hub_running(self) -> bool:
         """Ensure the Selenium Hub deployment and service exist in the namespace."""
-        for i in range(self.settings.kubernetes.K8S_MAX_RETRIES):
+        for i in range(self.settings.kubernetes.MAX_RETRIES):
             try:
                 await self._ensure_namespace_exists()
 
@@ -302,7 +302,7 @@ class KubernetesHubBackend(HubBackend):
                 return True
             except Exception as e:
                 logging.exception(f"Attempt {i + 1} to ensure K8s hub failed: {e}")
-                if i < self.settings.kubernetes.K8S_MAX_RETRIES - 1:
+                if i < self.settings.kubernetes.MAX_RETRIES - 1:
                     await self.resource_manager.sleep(i)
                 else:
                     logging.exception("Max retries reached for ensuring K8s hub.")
@@ -324,8 +324,8 @@ class KubernetesHubBackend(HubBackend):
     def _get_hub_pod_name(self) -> str:
         """Get the hub pod name using label selector."""
         pods = self.k8s_core.list_namespaced_pod(
-            namespace=self.settings.kubernetes.K8S_NAMESPACE,
-            label_selector=f"app={self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME}",
+            namespace=self.settings.kubernetes.NAMESPACE,
+            label_selector=f"app={self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME}",
         )
         if not pods.items:
             raise RuntimeError("No hub pods found")
@@ -351,14 +351,14 @@ class KubernetesHubBackend(HubBackend):
         )
 
     async def create_browsers(
-        self, count: int, browser_type: str, browser_configs: Dict[str, BrowserConfig]
-    ) -> List[str]:
+        self, count: int, browser_type: str, browser_configs: dict[str, BrowserConfig]
+    ) -> list[str]:
         """Create the requested number of Selenium browser pods of the given type."""
         browser_ids = []
         config: BrowserConfig = browser_configs[browser_type]
 
         for _ in range(count):
-            for i in range(self.settings.kubernetes.K8S_MAX_RETRIES):
+            for i in range(self.settings.kubernetes.MAX_RETRIES):
                 try:
                     pod_name = f"{self.settings.NODE_LABEL}-{browser_type}-{uuid.uuid4().hex[:8]}"
                     pod = self._create_browser_pod(pod_name, browser_type, config)
@@ -368,7 +368,7 @@ class KubernetesHubBackend(HubBackend):
                     break
                 except Exception as e:
                     logging.exception(f"Unexpected error creating browser pod: {e}")
-                    if i < self.settings.kubernetes.K8S_MAX_RETRIES - 1:
+                    if i < self.settings.kubernetes.MAX_RETRIES - 1:
                         await self.resource_manager.sleep(i)
                     else:
                         logging.exception(
@@ -382,9 +382,7 @@ class KubernetesHubBackend(HubBackend):
     @handle_kubernetes_exceptions(ErrorStrategy.STRICT)
     async def _create_browser_pod_with_retry(self, pod_name: str, pod: V1Pod, attempt: int) -> None:
         """Create a browser pod with retry logic."""
-        self.k8s_core.create_namespaced_pod(
-            namespace=self.settings.kubernetes.K8S_NAMESPACE, body=pod
-        )
+        self.k8s_core.create_namespaced_pod(namespace=self.settings.kubernetes.NAMESPACE, body=pod)
         logging.info(f"Pod {pod_name} created.")
 
     def _create_browser_pod(self, pod_name: str, browser_type: str, config: BrowserConfig) -> V1Pod:
@@ -416,21 +414,21 @@ class KubernetesHubBackend(HubBackend):
             ),
         )
 
-    def _get_browser_env_vars(self) -> List[V1EnvVar]:
+    def _get_browser_env_vars(self) -> list[V1EnvVar]:
         """Get environment variables for browser containers."""
         return [
             V1EnvVar(
                 name="SE_EVENT_BUS_HOST",
-                value=self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
+                value=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             ),
             V1EnvVar(
                 name="SE_VNC_NO_PASSWORD",
-                value=self.settings.selenium_hub.SELENIUM_HUB_VNC_PASSWORD.get_secret_value(),
+                value=self.settings.selenium_grid.VNC_PASSWORD.get_secret_value(),
             ),
             V1EnvVar(
                 name="SE_OPTS",
-                value=f"--username {self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()} \
-                    --password {self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()}",
+                value=f"--username {self.settings.selenium_grid.USER.get_secret_value()} \
+                    --password {self.settings.selenium_grid.PASSWORD.get_secret_value()}",
             ),
         ]
 
@@ -454,7 +452,7 @@ class KubernetesHubBackend(HubBackend):
         container = V1Container(
             name=self.settings.HUB_NAME,
             image="selenium/hub:4.18.1",
-            ports=[V1ContainerPort(container_port=self.settings.selenium_hub.SELENIUM_HUB_PORT)],
+            ports=[V1ContainerPort(container_port=self.settings.selenium_grid.SELENIUM_HUB_PORT)],
             env=self._get_hub_env_vars(),
             resources=V1ResourceRequirements(
                 requests={"cpu": "0.5", "memory": "256Mi"},
@@ -466,7 +464,7 @@ class KubernetesHubBackend(HubBackend):
                     command=[
                         "/bin/sh",
                         "-c",
-                        f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Basic {get_encoded_auth(self.settings)}' http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}/status",
+                        f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Basic {get_encoded_auth(self.settings)}' http://localhost:{self.settings.selenium_grid.SELENIUM_HUB_PORT}/status",
                     ]
                 ),
                 initial_delay_seconds=5,
@@ -480,7 +478,7 @@ class KubernetesHubBackend(HubBackend):
                     command=[
                         "/bin/sh",
                         "-c",
-                        f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Basic {get_encoded_auth(self.settings)}' http://localhost:{self.settings.selenium_hub.SELENIUM_HUB_PORT}/status",
+                        f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Basic {get_encoded_auth(self.settings)}' http://localhost:{self.settings.selenium_grid.SELENIUM_HUB_PORT}/status",
                     ]
                 ),
                 initial_delay_seconds=5,
@@ -493,7 +491,7 @@ class KubernetesHubBackend(HubBackend):
 
         template = V1PodTemplateSpec(
             metadata=V1ObjectMeta(
-                labels={"app": self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME}
+                labels={"app": self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME}
             ),
             spec=V1PodSpec(
                 containers=[container],
@@ -505,7 +503,7 @@ class KubernetesHubBackend(HubBackend):
             replicas=1,
             template=template,
             selector=V1LabelSelector(
-                match_labels={"app": self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME}
+                match_labels={"app": self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME}
             ),
         )
 
@@ -513,38 +511,38 @@ class KubernetesHubBackend(HubBackend):
             api_version="apps/v1",
             kind="Deployment",
             metadata=V1ObjectMeta(
-                name=self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
-                namespace=self.settings.kubernetes.K8S_NAMESPACE,
+                name=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
+                namespace=self.settings.kubernetes.NAMESPACE,
             ),
             spec=spec,
         )
 
-    def _get_hub_env_vars(self) -> List[V1EnvVar]:
+    def _get_hub_env_vars(self) -> list[V1EnvVar]:
         """Get environment variables for hub container."""
         return [
             V1EnvVar(
                 name="SE_EVENT_BUS_HOST",
-                value=self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
+                value=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             ),
-            V1EnvVar(name="SE_PORT", value=str(self.settings.selenium_hub.SELENIUM_HUB_PORT)),
+            V1EnvVar(name="SE_PORT", value=str(self.settings.selenium_grid.SELENIUM_HUB_PORT)),
             V1EnvVar(name="SE_EVENT_BUS_PUBLISH_PORT", value="4442"),
             V1EnvVar(name="SE_EVENT_BUS_SUBSCRIBE_PORT", value="4443"),
             V1EnvVar(
                 name="SE_OPTS",
-                value=f"--username {self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()} \
-                    --password {self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()}",
+                value=f"--username {self.settings.selenium_grid.USER.get_secret_value()} \
+                    --password {self.settings.selenium_grid.PASSWORD.get_secret_value()}",
             ),
             V1EnvVar(
                 name="SE_VNC_NO_PASSWORD",
-                value=self.settings.selenium_hub.SE_VNC_NO_PASSWORD_STR,
+                value=self.settings.selenium_grid.VNC_VIEW_ONLY_STR,
             ),
             V1EnvVar(
                 name="SE_VNC_PASSWORD",
-                value=self.settings.selenium_hub.SELENIUM_HUB_VNC_PASSWORD.get_secret_value(),
+                value=self.settings.selenium_grid.VNC_PASSWORD.get_secret_value(),
             ),
             V1EnvVar(
                 name="SE_VNC_VIEW_ONLY",
-                value=self.settings.selenium_hub.SELENIUM_HUB_VNC_VIEW_ONLY_STR,
+                value=self.settings.selenium_grid.VNC_VIEW_ONLY_STR,
             ),
         ]
 
@@ -553,11 +551,11 @@ class KubernetesHubBackend(HubBackend):
         service_type = "ClusterIP" if "KUBERNETES_SERVICE_HOST" in environ else "NodePort"
 
         spec = V1ServiceSpec(
-            selector={"app": self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME},
+            selector={"app": self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME},
             ports=[
                 V1ServicePort(
-                    port=self.settings.selenium_hub.SELENIUM_HUB_PORT,
-                    target_port=self.settings.selenium_hub.SELENIUM_HUB_PORT,
+                    port=self.settings.selenium_grid.SELENIUM_HUB_PORT,
+                    target_port=self.settings.selenium_grid.SELENIUM_HUB_PORT,
                 )
             ],
             type=service_type,
@@ -567,8 +565,8 @@ class KubernetesHubBackend(HubBackend):
             api_version="v1",
             kind="Service",
             metadata=V1ObjectMeta(
-                name=self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
-                namespace=self.settings.kubernetes.K8S_NAMESPACE,
+                name=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
+                namespace=self.settings.kubernetes.NAMESPACE,
             ),
             spec=spec,
         )
@@ -584,12 +582,12 @@ class KubernetesHubBackend(HubBackend):
         if not self.config_manager.is_kind or self._port_forward_process:
             return
         pfm = PortForwardManager(
-            service_name=self.settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME,
-            namespace=self.settings.kubernetes.K8S_NAMESPACE,
-            local_port=self.settings.selenium_hub.SELENIUM_HUB_PORT,
-            remote_port=self.settings.selenium_hub.SELENIUM_HUB_PORT,
-            kubeconfig=self.settings.kubernetes.K8S_KUBECONFIG,
-            context=self.settings.kubernetes.K8S_CONTEXT,
+            service_name=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
+            namespace=self.settings.kubernetes.NAMESPACE,
+            local_port=self.settings.selenium_grid.SELENIUM_HUB_PORT,
+            remote_port=self.settings.selenium_grid.SELENIUM_HUB_PORT,
+            kubeconfig=self.settings.kubernetes.KUBECONFIG,
+            context=self.settings.kubernetes.CONTEXT,
             check_health=self.check_hub_health,
             max_retries=5,
             health_timeout=30,
@@ -607,18 +605,3 @@ class KubernetesHubBackend(HubBackend):
             self._port_forward_manager.stop()
             self._port_forward_manager = None
         self._port_forward_process = None
-
-    @override
-    async def check_hub_health(
-        self, username: str | None = None, password: str | None = None
-    ) -> bool:
-        result = await super().check_hub_health(
-            username=username or self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value(),
-            password=password
-            or self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value(),
-        )
-        if result:
-            logging.info("KubernetesHubBackend: Hub health check succeeded.")
-        else:
-            logging.error("KubernetesHubBackend: Hub health check failed.")
-        return result

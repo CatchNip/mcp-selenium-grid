@@ -10,11 +10,15 @@ from app.services.selenium_hub.models import DeploymentMode
 
 
 @pytest.mark.e2e
-@pytest.fixture(scope="session", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
-async def test_check_hub_health(request: pytest.FixtureRequest) -> None:
+@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.parametrize("deployment_mode", [DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
+async def test_check_hub_health(deployment_mode: DeploymentMode) -> None:
     """Test that check_hub_health returns True when the hub is healthy."""
 
-    settings = Settings(DEPLOYMENT_MODE=request.param)
+    settings = Settings(DEPLOYMENT_MODE=deployment_mode)
+
+    assert settings.DEPLOYMENT_MODE == deployment_mode
+
     hub = SeleniumHub(settings)
 
     # Ensure hub is running and verify it
@@ -25,11 +29,13 @@ async def test_check_hub_health(request: pytest.FixtureRequest) -> None:
 
     # Verify hub status endpoint is accessible
     auth = httpx.BasicAuth(
-        settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value(),
-        settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value(),
+        settings.selenium_grid.USER.get_secret_value(),
+        settings.selenium_grid.PASSWORD.get_secret_value(),
     )
     async with httpx.AsyncClient(auth=auth) as client:
         response = await client.get(urljoin(hub.URL, "status"))
         assert response.status_code == httpx.codes.OK, (
             f"Hub status endpoint returned {response.status_code}"
         )
+
+    hub.cleanup()

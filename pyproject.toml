@@ -102,7 +102,7 @@ markers = [
     "e2e: marks tests as end-to-end tests",
     "unit: marks tests as unit tests",
 ]
-asyncio_mode = "auto"
+asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 log_cli = true
 log_cli_level = "INFO"

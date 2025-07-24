@@ -9,25 +9,22 @@ from typing import Any
 
 from pydantic import Field, SecretStr, field_validator
 
-from . import CustomBaseSettings
+from . import CustomBaseModel
 from .browser import BrowserConfig, ContainerResources
 
 
-class SeleniumHubSettings(CustomBaseSettings):
+class SeleniumGridSettings(CustomBaseModel):
     """
-    Configuration settings for the Selenium Hub core service.
-
-    Includes host, port, and other hub-specific options.
+    Configuration settings for the Selenium Grid core service.
     """
 
     # Selenium Hub Auth
-    SELENIUM_HUB_USER: SecretStr = Field(default=SecretStr("user"))
-    SELENIUM_HUB_PASSWORD: SecretStr = Field(default=SecretStr("CHANGE_ME"))
+    USER: SecretStr = SecretStr("user")
+    PASSWORD: SecretStr = SecretStr("CHANGE_ME")
 
-    # Selenium Settings
     SELENIUM_HUB_PORT: int = Field(default=4444, frozen=True)
 
-    @field_validator("SELENIUM_HUB_PORT")
+    @field_validator("SELENIUM_HUB_PORT", mode="after")
     @classmethod
     def _check_selenium_hub_port_is_default(cls, v: int) -> int:
         default_port = 4444
@@ -37,24 +34,23 @@ class SeleniumHubSettings(CustomBaseSettings):
             )
         return default_port
 
-    MAX_BROWSER_INSTANCES: int = Field(default=1)
-    SE_NODE_MAX_SESSIONS: int = Field(default=1)
-
+    MAX_BROWSER_INSTANCES: int = 1
+    SE_NODE_MAX_SESSIONS: int = 1
     # VNC Settings
-    SELENIUM_HUB_VNC_PASSWORD: SecretStr = Field(default=SecretStr("secret"))
-    SELENIUM_HUB_VNC_PORT: int = Field(default=7900)
-    SELENIUM_HUB_VNC_VIEW_ONLY: bool = Field(default=True)
+    VNC_PASSWORD: SecretStr = SecretStr("secret")
+    VNC_VIEW_ONLY: bool = True
+    VNC_PORT: int = 7900
 
     @property
-    def SELENIUM_HUB_VNC_VIEW_ONLY_STR(self) -> str:
-        return "1" if self.SELENIUM_HUB_VNC_VIEW_ONLY else "0"
+    def VNC_VIEW_ONLY_STR(self) -> str:
+        return "1" if self.VNC_VIEW_ONLY else "0"
 
-    SE_VNC_NO_PASSWORD: bool = Field(default=False)
+    SE_VNC_NO_PASSWORD: bool = False
 
     @field_validator("SE_VNC_NO_PASSWORD", mode="before")
     @classmethod
     def _compute_vnc_no_password(cls, v: bool, info: Any) -> bool:
-        return not bool(info.data.get("SELENIUM_HUB_VNC_PASSWORD"))
+        return not bool(info.data.get("VNC_PASSWORD"))
 
     @property
     def SE_VNC_NO_PASSWORD_STR(self) -> str:
@@ -66,9 +62,18 @@ class SeleniumHubSettings(CustomBaseSettings):
     @field_validator("BROWSER_CONFIGS", mode="before")
     @classmethod
     def _parse_browser_configs(cls, raw: dict[str, Any]) -> dict[str, BrowserConfig]:
+        if not raw:
+            return {}
+        # If already parsed (from __init__), just return as is
+        if all(isinstance(cfg, BrowserConfig) for cfg in raw.values()):
+            return raw
+        # Otherwise, parse from raw dict (from YAML/env)
         configs: dict[str, BrowserConfig] = {}
-        for name, cfg in (raw or {}).items():
-            if "resources" in cfg:
-                cfg["resources"] = ContainerResources(**cfg["resources"])
-            configs[name] = BrowserConfig(**cfg)
+        for name, cfg in raw.items():
+            if isinstance(cfg, BrowserConfig):
+                configs[name] = cfg
+            else:
+                if "resources" in cfg:
+                    cfg["resources"] = ContainerResources(**cfg["resources"])
+                configs[name] = BrowserConfig(**cfg)
         return configs

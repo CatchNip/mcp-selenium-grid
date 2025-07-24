@@ -23,7 +23,7 @@ class SeleniumHub:
     Attributes:
         settings (SeleniumHubBaseSettings): Application settings used to configure the hub and browsers
         _manager (SeleniumHubManager): Manager instance that handles the actual hub operations
-        browser_configs (Dict[str, BrowserConfig]): Configuration for supported browser types
+        browser_configs (dict[str, BrowserConfig]): Configuration for supported browser types
 
     Class Variables:
         _instance (Optional[SeleniumHub]): The singleton instance of the class
@@ -38,7 +38,7 @@ class SeleniumHub:
         Create or return the singleton instance.
 
         Args:
-            settings (Optional[SeleniumHubBaseSettings]): Application settings. Required for first initialization.
+            settings (Optional[SeleniumHubGeneralSettings]): Application settings. Required for first initialization.
 
         Returns:
             SeleniumHub: The singleton instance
@@ -48,9 +48,7 @@ class SeleniumHub:
         """
         if cls._instance is None:
             if settings is None:
-                raise ValueError(
-                    "SeleniumHubBaseSettings must be provided for first initialization"
-                )
+                raise ValueError("settings must be provided for first initialization")
             cls._instance = super().__new__(cls)
         return cls._instance
 
@@ -76,9 +74,7 @@ class SeleniumHub:
         """
         if not self._initialized:
             if settings is None:
-                raise ValueError(
-                    "SeleniumHubBaseSettings must be provided for first initialization"
-                )
+                raise ValueError("Settings must be provided for first initialization")
             self.settings: SeleniumHubGeneralSettings = settings
             self._manager: SeleniumHubManager = SeleniumHubManager(self.settings)
             self._initialized = True
@@ -109,8 +105,8 @@ class SeleniumHub:
         """
 
         return await self._manager.check_hub_health(
-            username=self.settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value(),
-            password=self.settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value(),
+            username=self.settings.selenium_grid.USER.get_secret_value(),
+            password=self.settings.selenium_grid.PASSWORD.get_secret_value(),
         )
 
     @track_hub_metrics()
@@ -163,17 +159,17 @@ class SeleniumHub:
         """
         if count <= 0:
             raise ValueError("Browser count must be positive")
-        if browser_type not in self.settings.selenium_hub.BROWSER_CONFIGS:
+        if browser_type not in self.settings.selenium_grid.BROWSER_CONFIGS:
             raise KeyError(f"Unsupported browser type: {browser_type}")
         if (
-            self.settings.selenium_hub.MAX_BROWSER_INSTANCES
-            and count > self.settings.selenium_hub.MAX_BROWSER_INSTANCES
+            self.settings.selenium_grid.MAX_BROWSER_INSTANCES
+            and count > self.settings.selenium_grid.MAX_BROWSER_INSTANCES
         ):
             raise ValueError(
-                f"Maximum browser instances exceeded: {count} > {self.settings.selenium_hub.MAX_BROWSER_INSTANCES}"
+                f"Maximum browser instances exceeded: {count} > {self.settings.selenium_grid.MAX_BROWSER_INSTANCES}"
             )
         return await self._manager.create_browsers(
-            count, browser_type, self.settings.selenium_hub.BROWSER_CONFIGS
+            count, browser_type, self.settings.selenium_grid.BROWSER_CONFIGS
         )
 
     @track_browser_metrics()
@@ -190,3 +186,10 @@ class SeleniumHub:
         if not browser_ids:
             return []
         return await self._manager.delete_browsers(browser_ids)
+
+    def cleanup(self) -> None:
+        """
+        Clean up all resources managed by the Selenium Hub (containers, networks, etc.).
+        Delegates to the manager's cleanup method.
+        """
+        self._manager.cleanup()

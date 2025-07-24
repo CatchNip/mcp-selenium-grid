@@ -1,7 +1,7 @@
 """Browser-related models for MCP Server."""
 
 from enum import Enum
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -28,7 +28,7 @@ class CreateBrowserRequest(BaseModel):
 class CreateBrowserResponse(BaseModel):
     """Browser response model."""
 
-    browsers: List[BrowserInstance]
+    browsers: list[BrowserInstance]
     hub_url: str
     status: BrowserResponseStatus
     message: Optional[str]
@@ -37,12 +37,12 @@ class CreateBrowserResponse(BaseModel):
 class DeleteBrowserRequest(BaseModel):
     """Browser request model."""
 
-    browsers_ids: List[str]
+    browsers_ids: list[str]
 
 
 class DeleteBrowserResponse(BaseModel):
     """Browser response model."""
 
-    browsers_ids: List[str]
+    browsers_ids: list[str]
     status: Literal[BrowserResponseStatus.DELETED, BrowserResponseStatus.UNCHANGED]
     message: Optional[str] = "Browsers deleted successfully."

@@ -2,7 +2,6 @@
 
 from functools import lru_cache
 from secrets import compare_digest
-from typing import Dict
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import (
@@ -29,7 +28,7 @@ basic_auth_scheme = HTTPBasic(auto_error=True)
 async def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     settings: Settings = Depends(get_settings),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Verifies the bearer token from the Authorization header.
 
@@ -83,8 +82,8 @@ def verify_basic_auth(
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Basic"},
         )
-    user = settings.selenium_hub.SELENIUM_HUB_USER.get_secret_value()
-    pwd = settings.selenium_hub.SELENIUM_HUB_PASSWORD.get_secret_value()
+    user = settings.selenium_grid.USER.get_secret_value()
+    pwd = settings.selenium_grid.PASSWORD.get_secret_value()
 
     if not (
         compare_digest(user, credentials.username) and compare_digest(pwd, credentials.password)

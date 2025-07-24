@@ -16,8 +16,8 @@ class TestKubernetesConfigManager:
     def test_init_loads_config_and_detects_kind(self, mocker: MockerFixture) -> None:
         """Test that __init__ loads config and detects KinD cluster."""
         k8s_settings = MagicMock()
-        k8s_settings.K8S_KUBECONFIG = None
-        k8s_settings.K8S_CONTEXT = None
+        k8s_settings.KUBECONFIG = None
+        k8s_settings.CONTEXT = None
 
         # Mock config loading at the module level
         mock_load_incluster = mocker.patch(
@@ -42,8 +42,8 @@ class TestKubernetesConfigManager:
     def test_init_falls_back_to_kubeconfig(self, mocker: MockerFixture) -> None:
         """Test that __init__ falls back to kubeconfig when not in cluster."""
         k8s_settings = MagicMock()
-        k8s_settings.K8S_KUBECONFIG = "/path/to/kubeconfig"
-        k8s_settings.K8S_CONTEXT = "test-context"
+        k8s_settings.KUBECONFIG = "/path/to/kubeconfig"
+        k8s_settings.CONTEXT = "test-context"
 
         # Mock in-cluster config to fail with ConfigException, kube config to succeed
         mock_load_incluster = mocker.patch(
@@ -68,8 +68,8 @@ class TestKubernetesConfigManager:
     def test_init_handles_config_loading_error(self, mocker: MockerFixture) -> None:
         """Test that __init__ handles config loading errors properly."""
         k8s_settings = MagicMock()
-        k8s_settings.K8S_KUBECONFIG = None
-        k8s_settings.K8S_CONTEXT = None
+        k8s_settings.KUBECONFIG = None
+        k8s_settings.CONTEXT = None
 
         # Mock config loading to fail at the module level
         mocker.patch(
@@ -92,7 +92,7 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_kind_cluster(self, mocker: MockerFixture) -> None:
         """Test URL resolution for KinD cluster."""
         settings = MagicMock()
-        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
+        settings.selenium_grid.SELENIUM_HUB_PORT = 4444
         k8s_core = MagicMock()
         is_kind = True
 
@@ -106,9 +106,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_in_cluster(self, mocker: MockerFixture) -> None:
         """Test URL resolution when running in cluster."""
         settings = MagicMock()
-        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
-        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.kubernetes.K8S_NAMESPACE = "default"
+        settings.selenium_grid.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.NAMESPACE = "default"
         k8s_core = MagicMock()
         is_kind = False
 
@@ -121,9 +121,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_nodeport_success(self, mocker: MockerFixture) -> None:
         """Test URL resolution with successful NodePort lookup."""
         settings = MagicMock()
-        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
-        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.kubernetes.K8S_NAMESPACE = "default"
+        settings.selenium_grid.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.NAMESPACE = "default"
         k8s_core = MagicMock()
 
         # Mock service with NodePort
@@ -145,9 +145,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_nodeport_fallback(self, mocker: MockerFixture) -> None:
         """Test URL resolution falls back when NodePort lookup fails."""
         settings = MagicMock()
-        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
-        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.kubernetes.K8S_NAMESPACE = "default"
+        settings.selenium_grid.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.NAMESPACE = "default"
         k8s_core = MagicMock()
 
         # Mock service without NodePort
@@ -169,9 +169,9 @@ class TestKubernetesUrlResolver:
     def test_get_hub_url_api_exception_fallback(self, mocker: MockerFixture) -> None:
         """Test URL resolution falls back when API call fails."""
         settings = MagicMock()
-        settings.selenium_hub.SELENIUM_HUB_PORT = 4444
-        settings.kubernetes.K8S_SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
-        settings.kubernetes.K8S_NAMESPACE = "default"
+        settings.selenium_grid.SELENIUM_HUB_PORT = 4444
+        settings.kubernetes.SELENIUM_GRID_SERVICE_NAME = "selenium-hub"
+        settings.kubernetes.NAMESPACE = "default"
         k8s_core = MagicMock()
 
         # Mock API exception
