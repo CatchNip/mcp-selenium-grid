@@ -15,7 +15,7 @@ from docker.errors import NotFound  # Add NotFound for mocking
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
 from pydantic import SecretStr
-from pytest import FixtureRequest
+from pytest import FixtureRequest, MonkeyPatch
 from pytest_mock import MockerFixture
 
 
@@ -168,47 +168,18 @@ def docker_backend(
 
 
 @pytest.fixture
-def mock_k8s_apis(mocker: MockerFixture) -> tuple[MagicMock, MagicMock]:
+def mock_k8s_apis(monkeypatch: MonkeyPatch, mocker: MockerFixture) -> tuple[MagicMock, MagicMock]:
     """
     Patches CoreV1Api and AppsV1Api so they use MagicMocks for the entire session.
     """
-
-    # Patch kubernetes config loading functions to prevent real K8s environment access
+    # Patch kubernetes config loading functions and environment variables to prevent real K8s access
     mocker.patch("app.services.selenium_hub.core.kubernetes.k8s_config.load_incluster_config")
     mocker.patch("app.services.selenium_hub.core.kubernetes.k8s_config.load_kube_config")
+    monkeypatch.delenv("KUBERNETES_SERVICE_HOST", raising=False)
+    monkeypatch.delenv("KUBERNETES_SERVICE_PORT", raising=False)
 
     core_mock = mocker.patch("kubernetes.client.CoreV1Api").return_value
     apps_mock = mocker.patch("kubernetes.client.AppsV1Api").return_value
-
-    # Default stubs to avoid per-test patching
-    # List all methods you want default-stubbed
-    core_methods = [
-        # Namespace
-        "create_namespace",
-        "read_namespace",
-        # Pod
-        "create_namespaced_pod",
-        "read_namespaced_pod",
-        "delete_namespaced_pod",
-        "list_namespaced_pod",
-        "delete_collection_namespaced_pod",
-        # Service
-        "create_namespaced_service",
-        "read_namespaced_service",
-        "delete_namespaced_service",
-        # Endpoints
-        "read_namespaced_endpoints",
-    ]
-    for m in core_methods:
-        setattr(core_mock, m, MagicMock())
-
-    apps_methods = [
-        "create_namespaced_deployment",
-        "delete_namespaced_deployment",
-        "read_namespaced_deployment",
-    ]
-    for m in apps_methods:
-        setattr(apps_mock, m, MagicMock())
 
     return core_mock, apps_mock
 
@@ -260,19 +231,6 @@ def k8s_backend(
     backend.k8s_apps = apps
 
     yield backend
-
-
-def mock_k8s_service_ready_state(mocker: MockerFixture, backend: KubernetesHubBackend) -> None:
-    """Mock Kubernetes service and endpoints to simulate ready state."""
-    mock_service = mocker.MagicMock()
-    mock_service.spec.type = "NodePort"
-    mock_endpoints = mocker.MagicMock()
-    mock_subset = mocker.MagicMock()
-    mock_subset.addresses = [MagicMock()]  # Non-empty addresses
-    mock_endpoints.subsets = [mock_subset]
-
-    mocker.patch.object(backend.k8s_core, "read_namespaced_service", return_value=mock_service)
-    mocker.patch.object(backend.k8s_core, "read_namespaced_endpoints", return_value=mock_endpoints)
 
 
 # ==============================================================================

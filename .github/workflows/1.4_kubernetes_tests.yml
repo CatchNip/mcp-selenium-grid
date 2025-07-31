@@ -1,0 +1,77 @@
+name: Kubernetes Integration & E2E Tests
+
+on:
+  workflow_call:
+
+jobs:
+  kubernetes-tests:
+    name: Run Kubernetes-based tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Setup KinD cluster
+        uses: helm/kind-action@v1
+        with:
+          version: v0.29.0
+          cluster_name: integration-e2e-tests
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.18.4'
+      - name: Setup yq (yaml parser)
+        uses: mikefarah/yq@v4
+        with:
+          cmd: yq --version
+      - name: Rename KinD context
+        run: |
+          new_context=$(yq '.kubernetes.context' config.yaml)
+          kubectl config rename-context kind-integration-e2e-tests "$new_context"
+
+      - name: Export KUBERNETES__KUBECONFIG
+        run: |
+          if [ "$EUID" -eq 0 ]; then
+            kube_config="/root/.kube/config"
+          else
+            kube_config="$HOME/.kube/config"
+          fi
+          echo "KUBERNETES__KUBECONFIG=$kube_config" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: uv sync --locked --all-groups --extra test --extra coverage
+
+      - name: Deploy Selenium Grid to KinD
+        run: uv run mcp-selenium-grid helm deploy
+
+      - name: Run Kubernetes integration & E2E tests with coverage
+        timeout-minutes: 2
+        run: |
+          uv run coverage run --parallel-mode -m pytest -m "integration or e2e" -k "kubernetes"
+
+      - name: Upload Kubernetes coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: .coverage.kubernetes # coverage expects .coverage.something
+          path: .coverage*
+          include-hidden-files: true
+          if-no-files-found: error

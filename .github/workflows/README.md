@@ -4,12 +4,14 @@
 
 This repository uses modular, clearly named workflows for CI, integration tests, packaging, Docker, and releases.
 
-1. 🧪 **Continuous Integration** — Unit tests, lint, and type checks
-1.2. 🔬 **Integration & E2E Tests** — Resource intensive, needs Docker & Kubernetes
+1. 🧪 **Tests** — lint, types checks, unit, integration and e2e tests.
+   - 🧩 **Unit Tests** — Run unit tests
+   - 🐳 **Docker Integration & E2E Tests** — Run Docker integration and end-to-end tests
+   - ☸️ **Kubernetes Integration & E2E Tests** — Run Kubernetes integration and end-to-end tests
 2. 🚀 **Full Release Workflow** — Builds and publishes both the Python package and Docker image, then creates a GitHub Release
-2.1. 📦 **Build & Publish Python Package** — Build and (optionally) publish the Python package
-2.2. 🐋 **Build & Push Docker Image** — Build and (optionally) push the Docker image
-2.3. 📝 **Create GitHub Release Only** — Create a GitHub Release from already published artifacts
+   - 📦 **Build & Publish Python Package** — Build and (optionally) publish the Python package
+   - 🐋 **Build & Push Docker Image** — Build and (optionally) push the Docker image
+   - 📝 **Create GitHub Release Only** — Create a GitHub Release from already published artifacts
 
 ## ⚡ Quick Start
 
@@ -27,26 +29,44 @@ This repository uses modular, clearly named workflows for CI, integration tests,
 
     👉 For more install options, see: <https://nektosact.com/installation/index.html>
 
+    > _Warning: act is not always realiable_.
+
 ## 🐳 Docker Image for act
 
 ```sh
 docker pull catthehacker/ubuntu:act-latest
 ```
 
-## 1. 🧪 Continuous Integration
+## 1. 🧪 Tests
 
-Run all CI checks (unit tests, lint, type checks):
+Run all CI checks (lint, types checks, unit, integration and e2e tests):
 
 ```sh
-act -W .github/workflows/1_ci.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
+act -W .github/workflows/1_tests.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
 ```
 
-## 1.2. 🔬 Integration & E2E Tests
+### 1.1. 🧩 Unit Tests
 
-Run integration and E2E tests (resource intensive, needs Docker & Kubernetes):
+Run unit tests:
 
 ```sh
-act workflow_dispatch -W .github/workflows/1.2_integration-e2e-tests.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
+act -W .github/workflows/1.2_unit_tests.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
+```
+
+### 1.2. 🐳 Docker Integration & E2E Tests
+
+Run Docker integration and end-to-end tests:
+
+```sh
+act -W .github/workflows/1.3_docker_tests.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
+```
+
+### 1.3. ☸️ Kubernetes Integration & E2E Tests
+
+Run Kubernetes integration and end-to-end tests:
+
+```sh
+act -W .github/workflows/1.4_kubernetes_tests.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
 ```
 
 ## 2. 🚀 Full Release Workflow

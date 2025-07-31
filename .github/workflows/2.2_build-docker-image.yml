@@ -39,7 +39,12 @@ jobs:
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Get Version from pyproject.toml
         uses: ./.github/actions/get-version
         id: get_version

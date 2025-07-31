@@ -1,8 +1,15 @@
 # 🤖 MCP Selenium Grid
 
-A Model Context Protocol (MCP) server for managing Selenium browser instances through a REST API. Useful for browser automation and testing workflows.
+[![Lint](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.1_lint/badge.svg)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.1_lint.yml)
+[![Unit Tests](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.2_unit_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.2_unit_tests.yml.yml)
+[![Docker Tests](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.3_docker_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.3_docker_tests.yml.yml)
+[![Kubernetes Tests (KinD)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.4_kubernetes_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.4_kubernetes_tests.yml)
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/CatchNip/mcp-selenium-grid?include_prereleases)](https://github.com/CatchNip/mcp-selenium-grid/releases)
+[![License](https://img.shields.io/github/license/CatchNip/mcp-selenium-grid)](LICENSE)
 
-The MCP Selenium Grid provides a REST API for creating and managing browser instances in both Docker and Kubernetes environments. It's designed to work with AI agents and automation tools that need browser automation capabilities.
+A Model Context Protocol (MCP) server for managing Selenium Grid browser instances. Useful for browser automation and testing workflows.
+
+The MCP Selenium Grid provides a MCP Server for creating and managing browser instances in both Docker and Kubernetes environments. It's designed to work with AI agents and automation tools that need browser automation capabilities.
 
 ## Key Features
 
@@ -22,7 +29,7 @@ The MCP Selenium Grid provides a REST API for creating and managing browser inst
 
 ### 📖 Usage
 
-The MCP Selenium Grid provides a REST API for creating and managing browser instances. The server runs on `localhost:8000` and exposes MCP endpoints at `/mcp`.
+The MCP Selenium Grid provides a Web API for creating and managing browser instances. The server runs on `localhost:8000` and exposes MCP endpoints at `/mcp`.
 
 ### MCP Client Configuration
 

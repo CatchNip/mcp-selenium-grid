@@ -25,19 +25,30 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for trusted publishing to PyPI
+      contents: read    # Required by actions/checkout and pypa publisher
     env:
       UV_SYSTEM_PYTHON: 1
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Get Version from pyproject.toml
         uses: ./.github/actions/get-version
         id: get_version
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
+
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -45,16 +56,16 @@ jobs:
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
+
       - name: Build package
         run: uv build
-      - name: Publish package to PyPI
+
+      - name: Publish package to PyPI (trusted publishing)
         if: ${{ inputs.publish == 'true' }}
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          uv pip install twine
-          twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@v1.12.4
+        with:
+          verbose: true  # Optional, logs more info
+
       - name: Upload Python package to GitHub Release
         if: ${{ inputs.upload-github-release == 'true' }}
         uses: softprops/action-gh-release@v2

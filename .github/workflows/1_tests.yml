@@ -1,0 +1,108 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+permissions: {}  # deny all by default
+
+env:
+  UV_SYSTEM_PYTHON: 1
+  MIN_COVERAGE: 70
+
+jobs:
+  lint:
+    uses: ./.github/workflows/1.1_lint.yml
+    permissions:
+      contents: read
+  unit-tests:
+    uses: ./.github/workflows/1.2_unit_tests.yml
+    needs: lint
+    permissions:
+      contents: read
+      actions: write # reusable workflow uploads artifacts
+  docker-tests:
+    uses: ./.github/workflows/1.3_docker_tests.yml
+    needs: unit-tests
+    permissions:
+      contents: read
+      actions: write # reusable workflow uploads artifacts
+  kubernetes-tests:
+    uses: ./.github/workflows/1.4_kubernetes_tests.yml
+    needs: unit-tests
+    permissions:
+      contents: read
+      actions: write # reusable workflow uploads artifacts
+  coverage-report:
+    name: Combine coverage reports and report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, docker-tests, kubernetes-tests]
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Checkout code
+        uses: actions/checkout@v4 # checkout cleans the directory by default, needs to be placed before download.
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          path: .
+          pattern: .coverage*
+          merge-multiple: true # download to same directory
+      - name: Verify coverage files exist
+        run: |
+          for file in .coverage*; do
+            if [ ! -f "$file" ]; then
+              echo "Required coverage file not found: $file"
+              ls -la
+              exit 1
+            fi
+          done
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      
+      - name: Install dependencies
+        run: uv sync --locked --extra coverage
+
+      - name: Combine and report coverage
+        run: |
+          uv run coverage combine
+          uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+          uv run coverage report --fail-under=$MIN_COVERAGE
+
+  check:
+    if: always()
+    needs: coverage-report
+    runs-on: Ubuntu-latest
+
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          # allowed-failures:
+          # allowed-skips:
+          jobs: ${{ toJSON(needs) }}

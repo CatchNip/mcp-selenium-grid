@@ -11,18 +11,27 @@ on:
 # This workflow is intended to be run manually for releases.
 # It does not depend on CI passing, but it is recommended to only run after CI passes.
 
+permissions: {}  # deny all by default
+
 jobs:
   params:
     runs-on: ubuntu-latest
     outputs:
       github-repository-lowercase: ${{ steps.lower.outputs.github_repository_lowercase }}
     steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
       - id: lower
         run: echo "github_repository_lowercase=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
   build-python-package:
     needs: params
     uses: ./.github/workflows/2.1_build-python-package.yml
+    permissions:
+      id-token: write
+      contents: read
     with:
       publish: ${{ github.event.inputs.publish }}
       upload-github-release: 'false'
@@ -31,6 +40,9 @@ jobs:
   build-docker-image:
     needs: [params, build-python-package]
     uses: ./.github/workflows/2.2_build-docker-image.yml
+    permissions:
+      contents: read
+      packages: write
     with:
       image-name: ghcr.io/${{ needs.params.outputs.github-repository-lowercase }}:${{ needs.build-python-package.outputs.version }}
       extra-tag: ghcr.io/${{ needs.params.outputs.github-repository-lowercase }}:latest
@@ -43,6 +55,8 @@ jobs:
     needs: [params, build-python-package, build-docker-image]
     if: ${{ github.event.inputs.publish == 'true' && needs.build-python-package.result == 'success' && needs.build-docker-image.result == 'success' }}
     uses: ./.github/workflows/2.3_create-github-release.yml
+    permissions:
+      contents: write
     with:
       version: ${{ needs.build-python-package.outputs.version }}
       docker-image: ghcr.io/${{ needs.params.outputs.github-repository-lowercase }}:${{ needs.build-docker-image.outputs.version }}

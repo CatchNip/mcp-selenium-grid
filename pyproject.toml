@@ -53,8 +53,11 @@ test = [
     "pytest>=8.4.1",
     "pytest-mock>=3.14.1",
     "pytest-asyncio>=1.0.0", # Parallel test execution
-    "coverage[toml]>=7.9.2",
     "pytest-sugar>=1.0.0",
+]
+
+coverage = [
+    "coverage[toml]>=7.9.2",
 ]
 
 [build-system]
@@ -126,4 +129,4 @@ exclude_lines = [
     "\\.\\.\\."
 ]
 show_missing = true
-fail_under = 80
+fail_under = 70

@@ -6,12 +6,11 @@ from app.services.selenium_hub.models.browser import BrowserConfig, BrowserType,
 from kubernetes.client.exceptions import ApiException
 from pytest_mock import MockerFixture
 
-from tests.conftest import mock_k8s_service_ready_state
-
 # NOTE: All tests must use the k8s_backend fixture to ensure proper mocking of Kubernetes API calls.
 # The fixture attaches set_namespace_exists to the backend for namespace mocking. Do not instantiate KubernetesHubBackend directly in tests.
 
 DELETE_RESOURCE_CALLS = 2
+READ_RESOURCE_CALLS = 3
 
 
 # Unit tests for cleanup method
@@ -72,19 +71,29 @@ async def test_ensure_hub_running_resources_exist(
 ) -> None:
     """Test that ensure_hub_running returns True when resources exist."""
     backend = k8s_backend
-    # Mock the resource manager to return successfully
-    mocker.patch.object(backend.resource_manager, "read_resource", return_value=MagicMock())
-    mocker.patch.object(backend, "_ensure_namespace_exists")
-    mocker.patch.object(backend, "_ensure_deployment_exists")
-    mocker.patch.object(backend, "_wait_for_hub_pod_ready")
-    mocker.patch.object(backend, "_ensure_service_exists")
-    mocker.patch.object(backend, "_wait_for_service_ready")
 
-    # Mock service and endpoints to simulate ready state
-    mock_k8s_service_ready_state(mocker, backend)
+    # Not testing readiness
+    mocker.patch.object(backend.resource_manager, "wait_for_resource_ready")
+
+    # Mock resource reading
+    # backend.resource_manager.read_resource is called 3 times and find resources.
+    read_resource = mocker.patch.object(backend.resource_manager, "read_resource")
+    create_namespaced_deployment = mocker.patch.object(
+        backend.k8s_apps, "create_namespaced_deployment"
+    )
+    create_namespaced_service = mocker.patch.object(backend.k8s_core, "create_namespaced_service")
+    create_namespace = mocker.patch.object(backend.k8s_core, "create_namespace")
 
     result = await backend.ensure_hub_running()
     assert result is True
+
+    # Read 3 times and find resources
+    assert read_resource.call_count == READ_RESOURCE_CALLS
+
+    # Nothing was created
+    assert create_namespaced_deployment.call_count == 0
+    assert create_namespaced_service.call_count == 0
+    assert create_namespace.call_count == 0
 
 
 @pytest.mark.unit
@@ -95,20 +104,31 @@ async def test_ensure_hub_running_creates_resources(
 ) -> None:
     """Test that ensure_hub_running returns True when resources are created."""
     backend = k8s_backend
-    # Mock namespace creation
-    mocker.patch.object(backend.k8s_core, "read_namespace", side_effect=ApiException(status=404))
-    mocker.patch.object(backend.k8s_core, "create_namespace", return_value=MagicMock())
-    # Mock resource creation
-    mocker.patch.object(backend, "_ensure_deployment_exists")
-    mocker.patch.object(backend, "_wait_for_hub_pod_ready")
-    mocker.patch.object(backend, "_ensure_service_exists")
-    mocker.patch.object(backend, "_wait_for_service_ready")
 
-    # Mock service and endpoints to simulate ready state
-    mock_k8s_service_ready_state(mocker, backend)
+    # Not testing readiness
+    mocker.patch.object(backend.resource_manager, "wait_for_resource_ready")
+
+    # Mock resource creation
+    # backend.resource_manager.read_resource is called 3 times and return resource not found.
+    read_resource = mocker.patch.object(
+        backend.resource_manager, "read_resource", side_effect=ApiException(status=404)
+    )
+    create_namespaced_deployment = mocker.patch.object(
+        backend.k8s_apps, "create_namespaced_deployment"
+    )
+    create_namespaced_service = mocker.patch.object(backend.k8s_core, "create_namespaced_service")
+    create_namespace = mocker.patch.object(backend.k8s_core, "create_namespace")
 
     result = await backend.ensure_hub_running()
     assert result is True
+
+    # Read 3 times and don't find resources
+    assert read_resource.call_count == READ_RESOURCE_CALLS
+
+    # Creates Resources
+    assert create_namespaced_deployment.call_count == 1
+    assert create_namespaced_service.call_count == 1
+    assert create_namespace.call_count == 1
 
 
 @pytest.mark.unit

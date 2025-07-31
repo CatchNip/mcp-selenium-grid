@@ -53,17 +53,17 @@ When reporting issues, please include:
 **Examples:**
 
 ```txt
-✨ Add Kubernetes deployment support
-🐛 Fix browser instance cleanup on shutdown
-📝 Update MCP client configuration examples
-♻️ Extract selenium hub logic into separate service
-✅ Add integration tests for browser workflow
+✨ feature: Add Kubernetes deployment support
+🐛 fix: browser instance cleanup on shutdown
+📝 docs: Update MCP client configuration examples
+♻️ refactor: split selenium hub logic into separated classes
+✅ test: Add integration tests for browser workflow
 ```
 
 **For bigger changes:**
 
 ```txt
-✨ Add Kubernetes deployment support
+✨ feature: Add Kubernetes deployment support
 
 - Add Helm charts for Selenium Grid deployment
 - Support for multiple Kubernetes contexts
@@ -88,7 +88,7 @@ git clone git@github.com:Falamarcao/mcp-selenium-grid.git
 cd mcp-selenium-grid
 
 # Create a virtual environment and install dev/test dependencies
-uv sync --all-groups --extra test
+uv sync --all-groups --extra test --extra coverage
 ```
 
 ### 3. Kubernetes Setup (Optional)
@@ -211,7 +211,7 @@ uv run ruff clean             # Clear ruff cache
 
 ## 📦 Dependency Management
 
-- Install all dependencies: `uv sync --all-groups --extra test`
+- Install all dependencies: `uv sync --all-groups --extra test --extra coverage`
 - Add a dependency: `uv add <package>`
 - Add a dev dependency: `uv add <package> --dev`
 - Add a test dependency: `uv add <package> --optional test`
