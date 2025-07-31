@@ -33,3 +33,4 @@ class KubernetesSettings(CustomBaseModel):
     SELENIUM_GRID_SERVICE_NAME: str = "selenium-grid"
     RETRY_DELAY_SECONDS: int = 2
     MAX_RETRIES: int = 5
+    PORT_FORWARD_LOCAL_PORT: int = 4444

@@ -1,43 +1,91 @@
-# WARNING: This workflow runs integration and end-to-end (E2E) tests, which require significant resources (Docker, Kubernetes, browsers, etc.).
-# Running this workflow may consume a large amount of GitHub Actions minutes and may quickly exhaust your free tier or incur costs.
-# It is recommended to run this workflow only when necessary (e.g., before releases or major merges).
-# Or just run locally :)
-
-name: Manual Integration & E2E Tests (High Resource Usage)
+name: Integration & E2E Tests (Docker and KinD [kubernetes in docker])
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  UV_SYSTEM_PYTHON: 1
+  MIN_COVERAGE: 60
 
 jobs:
-  integration-e2e-tests:
+
+  docker-tests:
+    name: Run Docker-based tests
     runs-on: ubuntu-latest
-    env:
-      UV_SYSTEM_PYTHON: 1
+    timeout-minutes: 2
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
-      - uses: astral-sh/setup-uv@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
-      - name: Set up KinD cluster
+
+      - name: Install dependencies
+        run: uv sync --locked --all-groups --extra test
+
+      - name: Run Docker integration & E2E tests with coverage
+        run: uv run coverage run --parallel-mode -m pytest -m "integration or e2e" -k "docker"
+
+      - name: Upload Docker coverage data
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-docker
+          path: .coverage*
+
+  kubernetes-tests:
+    name: Run Kubernetes-based tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Setup KinD cluster
         uses: helm/kind-action@v1
         with:
-          version: v0.26.0
+          version: v0.29.0
           cluster_name: integration-e2e-tests
-      - name: Install yq (yaml parser)
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -O /usr/bin/yq
-          sudo chmod +x /usr/bin/yq
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.18.4"
+      - name: Setup yq (yaml parser)
+        uses: mikefarah/yq@v4
+        with:
+          cmd: yq --version
       - name: Rename KinD context
         run: |
           new_context=$(yq '.kubernetes.context' config.yaml)
           kubectl config rename-context kind-integration-e2e-tests "$new_context"
+
       - name: Export KUBERNETES__KUBECONFIG
         run: |
           if [ "$EUID" -eq 0 ]; then
@@ -46,14 +94,44 @@ jobs:
             kube_config="$HOME/.kube/config"
           fi
           echo "KUBERNETES__KUBECONFIG=$kube_config" >> $GITHUB_ENV
-      - name: Install Helm CLI
-        run: |
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
       - name: Install dependencies
         run: uv sync --locked --all-groups --extra test
+
       - name: Deploy Selenium Grid to KinD
         run: uv run helm-selenium-grid deploy
-      - name: Run tests with coverage
-        run: uv run coverage run -m pytest -m "integration or e2e"
-      - name: Run coverage report
-        run: uv run coverage report --fail-under=60
+
+      - name: Run Kubernetes integration & E2E tests with coverage
+        timeout-minutes: 2
+        run: |
+          uv run coverage run --parallel-mode -m pytest -m "integration or e2e" -k "kubernetes"
+
+      - name: Upload Kubernetes coverage data
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-kubernetes
+          path: .coverage*
+
+  coverage-report:
+    name: Combine coverage reports and report
+    runs-on: ubuntu-latest
+    needs: [docker-tests, kubernetes-tests]
+    timeout-minutes: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Docker coverage data
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-docker
+
+      - name: Download Kubernetes coverage data
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-kubernetes
+
+      - name: Combine and report coverage
+        run: |
+          uv run coverage combine
+          uv run coverage report --fail-under=$MIN_COVERAGE

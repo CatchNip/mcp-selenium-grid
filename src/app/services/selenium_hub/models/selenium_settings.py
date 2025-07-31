@@ -5,18 +5,20 @@ Defines configuration options for the Selenium Hub itself, such as
 host, port, and hub-specific parameters.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from pydantic import Field, SecretStr, field_validator
 
 from . import CustomBaseModel
-from .browser import BrowserConfig, ContainerResources
+from .browser import BrowserConfig, BrowserConfigs, BrowserType, ContainerResources
 
 
 class SeleniumGridSettings(CustomBaseModel):
     """
     Configuration settings for the Selenium Grid core service.
     """
+
+    HUB_IMAGE: str = "selenium/hub:latest"
 
     # Selenium Hub Auth
     USER: SecretStr = SecretStr("user")
@@ -57,23 +59,23 @@ class SeleniumGridSettings(CustomBaseModel):
         return "1" if self.SE_VNC_NO_PASSWORD else "0"
 
     # Browser Configurations
-    BROWSER_CONFIGS: dict[str, BrowserConfig] = Field(default_factory=dict)
+    BROWSER_CONFIGS: BrowserConfigs = Field(default_factory=dict)
 
     @field_validator("BROWSER_CONFIGS", mode="before")
     @classmethod
-    def _parse_browser_configs(cls, raw: dict[str, Any]) -> dict[str, BrowserConfig]:
+    def _parse_browser_configs(cls, raw: dict[str, Any]) -> BrowserConfigs:
         if not raw:
             return {}
         # If already parsed (from __init__), just return as is
         if all(isinstance(cfg, BrowserConfig) for cfg in raw.values()):
-            return raw
+            return cast(BrowserConfigs, raw)
         # Otherwise, parse from raw dict (from YAML/env)
-        configs: dict[str, BrowserConfig] = {}
+        configs: BrowserConfigs = {}
         for name, cfg in raw.items():
             if isinstance(cfg, BrowserConfig):
-                configs[name] = cfg
+                configs[BrowserType(name)] = cfg
             else:
                 if "resources" in cfg:
                     cfg["resources"] = ContainerResources(**cfg["resources"])
-                configs[name] = BrowserConfig(**cfg)
+                configs[BrowserType(name)] = BrowserConfig(**cfg)
         return configs

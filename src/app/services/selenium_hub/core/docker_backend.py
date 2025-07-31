@@ -4,7 +4,7 @@ from typing import override
 import docker
 from docker.errors import APIError, NotFound
 
-from ..models.browser import BrowserConfig
+from ..models.browser import BrowserConfig, BrowserConfigs, BrowserType
 from ..models.general_settings import SeleniumHubGeneralSettings
 from .hub_backend import HubBackend
 
@@ -112,7 +112,7 @@ class DockerHubBackend(HubBackend):
         except NotFound:
             logging.info(f"{self.settings.HUB_NAME} container not found, creating.")
             self.client.containers.run(
-                "selenium/hub:4.18.1",
+                self.settings.selenium_grid.HUB_IMAGE,
                 name=self.settings.HUB_NAME,
                 detach=True,
                 network=self.settings.docker.DOCKER_NETWORK_NAME,
@@ -149,7 +149,10 @@ class DockerHubBackend(HubBackend):
 
     @override
     async def create_browsers(
-        self, count: int, browser_type: str, browser_configs: dict[str, BrowserConfig]
+        self,
+        count: int,
+        browser_type: BrowserType,
+        browser_configs: BrowserConfigs,
     ) -> list[str]:
         """Create the requested number of Selenium browser containers."""
         config: BrowserConfig = browser_configs[browser_type]
@@ -179,7 +182,7 @@ class DockerHubBackend(HubBackend):
                     network=self.settings.docker.DOCKER_NETWORK_NAME,
                     labels={
                         self.settings.NODE_LABEL: "true",
-                        self.settings.BROWSER_LABEL: browser_type,
+                        self.settings.BROWSER_LABEL: str(browser_type),
                     },
                     environment={
                         "SE_EVENT_BUS_HOST": self.settings.HUB_NAME,

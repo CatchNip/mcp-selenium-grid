@@ -1,11 +1,11 @@
 """Browser-related models for MCP Server."""
 
 from enum import Enum
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.services.selenium_hub.models.browser import BrowserInstance
+from app.services.selenium_hub.models.browser import BrowserInstance, BrowserType
 
 
 class BrowserResponseStatus(str, Enum):
@@ -20,8 +20,8 @@ class CreateBrowserRequest(BaseModel):
     """Browser request model."""
 
     count: int = Field(default=1, gt=0, description="Number of browser instances to create")
-    browser_type: str = Field(
-        default="chrome", pattern="^(chrome|firefox|edge)$", description="Type of browser to create"
+    browser_type: BrowserType = Field(
+        default=BrowserType.CHROME, description="Type of browser to create"
     )
 
 
@@ -31,7 +31,7 @@ class CreateBrowserResponse(BaseModel):
     browsers: list[BrowserInstance]
     hub_url: str
     status: BrowserResponseStatus
-    message: Optional[str]
+    message: str | None
 
 
 class DeleteBrowserRequest(BaseModel):
@@ -45,4 +45,4 @@ class DeleteBrowserResponse(BaseModel):
 
     browsers_ids: list[str]
     status: Literal[BrowserResponseStatus.DELETED, BrowserResponseStatus.UNCHANGED]
-    message: Optional[str] = "Browsers deleted successfully."
+    message: str | None = "Browsers deleted successfully."

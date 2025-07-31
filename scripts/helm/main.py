@@ -5,7 +5,6 @@ import os
 import tempfile
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 import typer
 from app.core.settings import Settings
@@ -13,7 +12,7 @@ from app.core.settings import Settings
 from .cli.helm import run_helm_command
 from .cli.kubectl import delete_namespace
 from .helpers import map_config_to_helm_values, resolve_namespace_context_and_kubeconfig
-from .models import HelmChartPath, K8sName
+from .models import HelmChartPath
 
 
 @lru_cache()
@@ -27,6 +26,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         name="helm-selenium-grid",
         help="Deploy Selenium Grid using Helm",
     )
+    settings = get_settings()
 
     @app.command()  # TODO: run deploy and fix namespace already exists after uninstall with --delete-namespace
     def deploy(  # noqa: PLR0913
@@ -37,22 +37,22 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
             dir_okay=True,
             file_okay=False,  # Ensure it's a directory
         ),
-        release_name: Optional[str] = typer.Option(
-            None,
+        release_name: str = typer.Option(
+            settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             help="Name of the Helm release",
         ),
         namespace: str = typer.Option(
-            "",
-            help="Kubernetes namespace (defaults to value from config.yaml)",
+            settings.kubernetes.NAMESPACE,
+            help="Kubernetes namespace",
         ),
-        context: Optional[str] = typer.Option(
-            None,
-            help="Kubernetes context to use (e.g. 'k3s'). Overrides context from config.yaml.",
+        context: str = typer.Option(
+            settings.kubernetes.CONTEXT,
+            help="Kubernetes context to use",
         ),
-        kubeconfig: Optional[Path] = typer.Option(
-            None,
+        kubeconfig: Path = typer.Option(
+            settings.kubernetes.KUBECONFIG,
             "--kubeconfig",
-            help="Path to the kubeconfig file. Overrides KUBECONFIG from settings.",
+            help="Path to the kubeconfig file.",
         ),
         debug: bool = typer.Option(
             False,
@@ -60,19 +60,13 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         ),
     ) -> None:
         """Deploy Selenium Grid using Helm CLI."""
-        settings = get_settings()
-
-        # Use settings for default release_name if not provided
-        effective_release_name = (
-            release_name if release_name else settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
-        )
 
         # Validate inputs using Pydantic models
         chart = HelmChartPath(path=chart_path)
-        release = K8sName(name=effective_release_name)
 
-        namespace_obj, effective_kube_context, effective_kubeconfig = (
+        release_name_obj, namespace_obj, effective_kube_context, effective_kubeconfig = (
             resolve_namespace_context_and_kubeconfig(
+                cli_release_name_arg=release_name,
                 cli_namespace_arg=namespace,
                 cli_kube_context_arg=context,
                 cli_kubeconfig_arg=kubeconfig,
@@ -83,7 +77,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         if debug:
             typer.echo("--- Debug Information ---")
             typer.echo(f"Chart: {chart.path}")
-            typer.echo(f"Release Name: {release}")
+            typer.echo(f"Release Name: {release_name_obj}")
             typer.echo(f"Namespace: {namespace_obj}")
             typer.echo(f"Context: {effective_kube_context or 'Default'}")
             typer.echo(f"kubeconfig: {effective_kubeconfig or 'Default'}")
@@ -107,7 +101,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
                 "helm",
                 "upgrade",
                 "--install",
-                str(release),
+                str(release_name_obj),
                 str(chart.path),
                 # Use --namespace to ensure release metadata is stored in the same namespace as resources
                 # Use --create-namespace to ensure namespace exists before chart creates resources
@@ -140,7 +134,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
             )
 
             typer.echo(
-                f"Helm release '{release}' deployed/upgraded successfully in namespace '{namespace_obj}'."
+                f"Helm release '{release_name_obj}' deployed/upgraded successfully in namespace '{namespace_obj}'."
             )
         finally:
             if values_file_path:
@@ -149,22 +143,22 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
 
     @app.command()
     def uninstall(  # noqa: PLR0913
-        release_name: Optional[str] = typer.Option(
-            None,
+        release_name: str = typer.Option(
+            settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             help="Name of the Helm release to uninstall",
         ),
         namespace: str = typer.Option(
-            "",
-            help="Kubernetes namespace (defaults to value from config.yaml)",
+            settings.kubernetes.NAMESPACE,
+            help="Kubernetes namespace",
         ),
-        context: Optional[str] = typer.Option(
-            None,
-            help="Kubernetes context to use. Overrides context from config.yaml.",
+        context: str = typer.Option(
+            settings.kubernetes.CONTEXT,
+            help="Kubernetes context to use.",
         ),
-        kubeconfig: Optional[Path] = typer.Option(
-            None,
+        kubeconfig: Path = typer.Option(
+            settings.kubernetes.KUBECONFIG,
             "--kubeconfig",
-            help="Path to the kubeconfig file. Overrides KUBECONFIG from settings.",
+            help="Path to the kubeconfig file.",
         ),
         debug: bool = typer.Option(
             False,
@@ -177,17 +171,9 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         ),
     ) -> None:
         """Uninstall Selenium Grid Helm release."""
-        settings = get_settings()
-        # Use settings for default release_name if not provided
-        effective_release_name = (
-            release_name if release_name else settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
-        )
-
-        # Validate inputs
-        release = K8sName(name=effective_release_name)
-
-        namespace_obj, effective_kube_context, effective_kubeconfig = (
+        release_name_obj, namespace_obj, effective_kube_context, effective_kubeconfig = (
             resolve_namespace_context_and_kubeconfig(
+                cli_release_name_arg=release_name,
                 cli_namespace_arg=namespace,
                 cli_kube_context_arg=context,
                 cli_kubeconfig_arg=kubeconfig,
@@ -197,7 +183,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
 
         if debug:
             typer.echo("--- Debug Information ---")
-            typer.echo(f"Release Name: {release}")
+            typer.echo(f"Release Name: {release_name_obj}")
             typer.echo(f"Namespace: {namespace_obj}")
             typer.echo(f"Context: {effective_kube_context or 'Default'}")
             typer.echo(f"kubeconfig: {effective_kubeconfig or 'Default'}")
@@ -207,7 +193,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         cmd_args = [
             "helm",
             "uninstall",
-            str(release),
+            str(release_name_obj),
             "--namespace",
             str(namespace_obj),
         ]
@@ -227,7 +213,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         )
 
         typer.echo(
-            f"Helm release '{release}' uninstalled successfully from namespace '{namespace_obj}'."
+            f"Helm release '{release_name_obj}' uninstalled successfully from namespace '{namespace_obj}'."
         )
 
         if delete_ns:

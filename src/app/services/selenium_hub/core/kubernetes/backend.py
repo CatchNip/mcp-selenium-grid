@@ -1,8 +1,7 @@
 import logging
 import uuid
 from os import environ
-from subprocess import Popen
-from typing import Any, Callable, Optional, override
+from typing import Any, Callable, override
 
 from kubernetes.client import (
     AppsV1Api,
@@ -33,7 +32,7 @@ from kubernetes.client.models import (
     V1ServiceSpec,
 )
 
-from ...models.browser import BrowserConfig
+from ...models.browser import BrowserConfig, BrowserConfigs, BrowserType
 from ...models.general_settings import SeleniumHubGeneralSettings
 from ..hub_backend import HubBackend
 from .common.auth import get_encoded_auth
@@ -54,8 +53,13 @@ class KubernetesHubBackend(HubBackend):
     Handles cleanup and resource management for Selenium Hub deployments.
     """
 
-    _port_forward_process: Optional[Popen[str]]
-    _port_forward_manager: Optional[PortForwardManager]
+    settings: SeleniumHubGeneralSettings
+    config_manager: KubernetesConfigManager
+    k8s_core: CoreV1Api
+    k8s_apps: AppsV1Api
+    resource_manager: KubernetesResourceManager
+    url_resolver: KubernetesUrlResolver
+    port_forward_manager: PortForwardManager | None
 
     def __init__(self, settings: SeleniumHubGeneralSettings) -> None:
         """Initialize the KubernetesHubBackend with the given settings."""
@@ -73,8 +77,7 @@ class KubernetesHubBackend(HubBackend):
         )
 
         # Port-forwarding
-        self._port_forward_process = None
-        self._port_forward_manager = None
+        self.port_forward_manager = None
 
     @property
     def URL(self) -> str:
@@ -112,12 +115,7 @@ class KubernetesHubBackend(HubBackend):
     @override
     def cleanup(self) -> None:
         """Clean up all resources by first cleaning up browsers then the hub."""
-        if self._port_forward_process:
-            self._port_forward_process.terminate()
-            self._port_forward_process.wait()
-            self._port_forward_process = None
-            logging.info("Stopped kubectl service port-forward.")
-
+        self._stop_service_port_forward()
         super().cleanup()
 
     def _validate_deployment_config(self, deployment: V1Deployment) -> bool:
@@ -207,7 +205,7 @@ class KubernetesHubBackend(HubBackend):
         resource_type: ResourceType,
         name: str,
         create_func: Callable[..., Any],
-        validate_func: Optional[Callable[..., Any]] = None,
+        validate_func: Callable[..., Any] | None = None,
     ) -> None:
         """Generic method to ensure a resource exists."""
         try:
@@ -296,7 +294,7 @@ class KubernetesHubBackend(HubBackend):
                 await self._wait_for_service_ready()
 
                 # Start service port foward, if is KinD (Kubernetes in Docker)
-                if self.config_manager.is_kind and not self._port_forward_process:
+                if self.config_manager.is_kind:
                     await self._start_service_port_forward()
 
                 return True
@@ -351,10 +349,13 @@ class KubernetesHubBackend(HubBackend):
         )
 
     async def create_browsers(
-        self, count: int, browser_type: str, browser_configs: dict[str, BrowserConfig]
+        self,
+        count: int,
+        browser_type: BrowserType,
+        browser_configs: BrowserConfigs,
     ) -> list[str]:
         """Create the requested number of Selenium browser pods of the given type."""
-        browser_ids = []
+        browser_ids: list[str] = []
         config: BrowserConfig = browser_configs[browser_type]
 
         for _ in range(count):
@@ -385,12 +386,17 @@ class KubernetesHubBackend(HubBackend):
         self.k8s_core.create_namespaced_pod(namespace=self.settings.kubernetes.NAMESPACE, body=pod)
         logging.info(f"Pod {pod_name} created.")
 
-    def _create_browser_pod(self, pod_name: str, browser_type: str, config: BrowserConfig) -> V1Pod:
+    def _create_browser_pod(
+        self, pod_name: str, browser_type: BrowserType, config: BrowserConfig
+    ) -> V1Pod:
         """Create a browser pod configuration."""
         return V1Pod(
             metadata=V1ObjectMeta(
                 name=pod_name,
-                labels={"app": self.settings.NODE_LABEL, self.settings.BROWSER_LABEL: browser_type},
+                labels={
+                    "app": self.settings.NODE_LABEL,
+                    self.settings.BROWSER_LABEL: browser_type.value,
+                },
             ),
             spec=V1PodSpec(
                 containers=[
@@ -451,7 +457,7 @@ class KubernetesHubBackend(HubBackend):
 
         container = V1Container(
             name=self.settings.HUB_NAME,
-            image="selenium/hub:4.18.1",
+            image=self.settings.selenium_grid.HUB_IMAGE,
             ports=[V1ContainerPort(container_port=self.settings.selenium_grid.SELENIUM_HUB_PORT)],
             env=self._get_hub_env_vars(),
             resources=V1ResourceRequirements(
@@ -579,29 +585,30 @@ class KubernetesHubBackend(HubBackend):
 
     async def _start_service_port_forward(self) -> None:
         """Start kubectl port-forward for the Selenium Hub service, with health check and retries."""
-        if not self.config_manager.is_kind or self._port_forward_process:
+        if self.port_forward_manager:
             return
         pfm = PortForwardManager(
             service_name=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             namespace=self.settings.kubernetes.NAMESPACE,
-            local_port=self.settings.selenium_grid.SELENIUM_HUB_PORT,
+            local_port=self.settings.kubernetes.PORT_FORWARD_LOCAL_PORT,
             remote_port=self.settings.selenium_grid.SELENIUM_HUB_PORT,
             kubeconfig=self.settings.kubernetes.KUBECONFIG,
             context=self.settings.kubernetes.CONTEXT,
-            check_health=self.check_hub_health,
+            check_health=lambda: self.check_hub_health(
+                username=self.settings.selenium_grid.USER.get_secret_value(),
+                password=self.settings.selenium_grid.PASSWORD.get_secret_value(),
+            ),
             max_retries=5,
             health_timeout=30,
         )
         if await pfm.start():
-            self._port_forward_process = pfm.process
-            self._port_forward_manager = pfm  # Optionally keep reference for later stop
+            self.port_forward_manager = pfm  # keep reference for later stop
         else:
-            self._port_forward_process = None
-            self._port_forward_manager = None
+            self.port_forward_manager = None
             raise RuntimeError("Failed to start port-forward and connect to Selenium Hub.")
 
-    def stop_service_port_forward(self) -> None:
-        if hasattr(self, "_port_forward_manager") and self._port_forward_manager:
-            self._port_forward_manager.stop()
-            self._port_forward_manager = None
-        self._port_forward_process = None
+    def _stop_service_port_forward(self) -> None:
+        if self.port_forward_manager:
+            self.port_forward_manager.stop()
+            self.port_forward_manager = None
+            logging.info("Stopped kubectl service port-forward.")

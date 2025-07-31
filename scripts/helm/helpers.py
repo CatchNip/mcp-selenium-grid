@@ -1,6 +1,5 @@
 from decimal import Decimal
 from pathlib import Path
-from typing import Optional
 
 from app.core.settings import Settings
 from kubernetes.utils import parse_quantity  # type: ignore
@@ -9,27 +8,18 @@ from .models import K8sName
 
 
 def resolve_namespace_context_and_kubeconfig(
+    cli_release_name_arg: str,
     cli_namespace_arg: str,
-    cli_kube_context_arg: Optional[str],
-    cli_kubeconfig_arg: Optional[Path],
+    cli_kube_context_arg: str,
+    cli_kubeconfig_arg: Path,
     settings: Settings,
-) -> tuple[K8sName, Optional[str], Optional[str]]:
+) -> tuple[K8sName, K8sName, str, str]:
     """Resolves the effective namespace and Kubernetes context."""
-    namespace_name = cli_namespace_arg or settings.kubernetes.NAMESPACE
-    namespace_obj = K8sName(name=namespace_name)
-    effective_kube_context = (
-        cli_kube_context_arg if cli_kube_context_arg is not None else settings.kubernetes.CONTEXT
-    )
+    release_name_obj = K8sName(name=cli_release_name_arg)
+    namespace_obj = K8sName(name=cli_namespace_arg)
+    resolved_kubeconfig_str: str = str(cli_kubeconfig_arg.expanduser())
 
-    resolved_kubeconfig_str: Optional[str] = None
-    if cli_kubeconfig_arg is not None:
-        # Typer converts the CLI argument to a Path object.
-        resolved_kubeconfig_str = str(cli_kubeconfig_arg.expanduser())
-    elif settings.kubernetes.KUBECONFIG:
-        # settings.kubernetes.KUBECONFIG is a str from the config file.
-        resolved_kubeconfig_str = settings.kubernetes.KUBECONFIG
-
-    return namespace_obj, effective_kube_context, resolved_kubeconfig_str
+    return release_name_obj, namespace_obj, cli_kube_context_arg, resolved_kubeconfig_str
 
 
 def format_memory(bytes_val: Decimal) -> str:

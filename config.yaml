@@ -7,6 +7,7 @@ allowed_origins:
   - http://localhost:8000
 
 selenium_grid:
+  hub_image: selenium/hub:latest
   max_browser_instances: 10
   se_node_max_sessions: 1
   user: user
@@ -16,19 +17,25 @@ selenium_grid:
   vnc_port: 7900
   browser_configs:
     chrome:
-      image: selenium/node-chrome:4.18.1
+      image: selenium/node-chrome:latest
+      port: 4444
+      resources:
+        memory: "1G"
+        cpu: "0.5"
+    undetected-chrome:
+      image: falamarcao/node-undetected-chrome:latest # not public yet (testing)
       port: 4444
       resources:
         memory: "1G"
         cpu: "0.5"
     firefox:
-      image: selenium/node-firefox:4.18.1
+      image: selenium/node-firefox:latest
       port: 4444
       resources:
         memory: "1G"
         cpu: "0.5"
     edge:
-      image: selenium/node-edge:4.18.1
+      image: selenium/node-edge:latest
       port: 4444
       resources:
         memory: "1G"
@@ -40,3 +47,4 @@ kubernetes:
   selenium_grid_service_name: selenium-grid
   retry_delay_seconds: 2
   max_retries: 5
+  port_forward_local_port: 5555 # Only used for KinD (Kubernetes in Docker)

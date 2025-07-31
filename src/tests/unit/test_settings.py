@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from app.core.settings import Settings
 from app.services.selenium_hub.models import DeploymentMode
+from app.services.selenium_hub.models.browser import BrowserType
 
 MAX_BROWSER_INSTANCES = 100
 SELENIUM_PORT = 4444
@@ -48,6 +49,7 @@ def test_settings_loads_from_yaml(tmp_path: Path) -> None:
         project_name: YAML Project
         version: 9.9.9
         selenium_grid:
+          hub_image: selenium/hub:latest
           max_browser_instances: {MAX_BROWSER_INSTANCES}
           browser_configs:
             chrome:
@@ -74,8 +76,8 @@ def test_settings_loads_from_yaml(tmp_path: Path) -> None:
         expected_kubeconfig = os.path.expanduser("~/fake-kubeconfig")
         assert settings.kubernetes.KUBECONFIG == expected_kubeconfig
         # Verify browser configs
-        assert "chrome" in settings.selenium_grid.BROWSER_CONFIGS
-        chrome_config = settings.selenium_grid.BROWSER_CONFIGS["chrome"]
+        assert BrowserType.CHROME in settings.selenium_grid.BROWSER_CONFIGS
+        chrome_config = settings.selenium_grid.BROWSER_CONFIGS[BrowserType.CHROME]
         assert chrome_config.image == "selenium/node-chrome:4.18.1"
         assert chrome_config.port == SELENIUM_PORT
         assert chrome_config.resources.memory == "512M"

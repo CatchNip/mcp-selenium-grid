@@ -3,9 +3,5 @@
   "python.testing.pytestArgs": ["./src/tests"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-  "python.analysis.diagnosticSeverityOverrides": {
-    // let mypy handle
-    "reportUnknownVariableType": false,
-    "reportUnknownArgumentType": false
-  }
+  "python.analysis.typeCheckingMode": "off" // using Mypy
 }

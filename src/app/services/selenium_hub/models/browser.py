@@ -5,6 +5,8 @@ Defines schemas for representing browser types, versions, and capabilities
 used by the Selenium Hub for browser management and orchestration.
 """
 
+from enum import Enum
+
 from docker.utils import parse_bytes
 from pydantic import BaseModel, Field, field_validator
 
@@ -44,11 +46,24 @@ class BrowserConfig(BaseModel):
     port: int = 444
 
 
+class BrowserType(Enum):
+    CHROME = "chrome"
+    UNDETECTED_CHROME = "undetected-chrome"
+    FIREFOX = "firefox"
+    EDGE = "edge"
+
+    def __str__(self) -> str:
+        return f"browser-{self.value}"
+
+
+type BrowserConfigs = dict[BrowserType, BrowserConfig]
+
+
 class BrowserInstance(BaseModel):
     """Represents a single browser instance."""
 
     id: str
-    type: str
+    type: BrowserType
     resources: ContainerResources
 
     @field_validator("id")
@@ -56,12 +71,4 @@ class BrowserInstance(BaseModel):
     def id_must_be_non_empty_string(cls, value: str) -> str:
         if not value:
             raise ValueError("`id` must be a non-empty string")
-        return value
-
-    @field_validator("type")
-    @classmethod
-    def type_must_be_valid_browser_type(cls, value: str) -> str:
-        valid_types = ["chrome", "firefox", "edge"]
-        if value not in valid_types:
-            raise ValueError(f"`type` must be one of {valid_types}")
         return value

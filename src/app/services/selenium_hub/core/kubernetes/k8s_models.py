@@ -1,6 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+
+
+class WaitingStrategy(Enum):
+    """Enum for different waiting strategies."""
+
+    POLLING = "polling"
+    WATCH = "watch"
 
 
 @dataclass
@@ -9,14 +15,7 @@ class WaitConfig:
 
     timeout_seconds: int = 30
     poll_interval: int = 2
-    strategy: Optional["WaitingStrategy"] = None
-
-
-class WaitingStrategy(Enum):
-    """Enum for different waiting strategies."""
-
-    POLLING = "polling"
-    WATCH = "watch"
+    strategy: WaitingStrategy | None = None
 
 
 class ResourceType(Enum):

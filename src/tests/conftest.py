@@ -1,6 +1,6 @@
 """Pytest configuration file."""
 
-from typing import Any, Generator, Optional, cast
+from typing import Any, Generator, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,7 +10,7 @@ from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.core.docker_backend import DockerHubBackend
 from app.services.selenium_hub.core.kubernetes import KubernetesHubBackend
 from app.services.selenium_hub.models import DeploymentMode
-from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
+from app.services.selenium_hub.models.browser import BrowserConfig, BrowserType, ContainerResources
 from docker.errors import NotFound  # Add NotFound for mocking
 from fastapi.testclient import TestClient
 from httpx import BasicAuth
@@ -49,7 +49,7 @@ def create_mock_container(
     status: str = "running",
     name: str = "mock-container",
     id: str = "container-id",
-    image_tags: Optional[list[str]] = None,
+    image_tags: list[str] | None = None,
 ) -> MagicMock:
     """Create a MagicMock Docker container with the given attributes."""
     if image_tags is None:
@@ -88,14 +88,14 @@ def mock_docker_client(mocker: MockerFixture) -> MagicMock:
     containers = mocker.MagicMock(name="ContainersMock")
     containers.list.return_value = []
     containers.get.side_effect = containers.run.side_effect = containers.create.side_effect = (
-        lambda *args, **kwargs: create_mock_container(mocker)
+        lambda *args, **kwargs: create_mock_container(mocker, *args, **kwargs)
     )
     client.containers = containers
     # Networks
     networks = mocker.MagicMock(name="NetworksMock")
     networks.list.return_value = []
     networks.get.side_effect = networks.create.side_effect = (
-        lambda *args, **kwargs: create_mock_network(mocker)
+        lambda *args, **kwargs: create_mock_network(mocker, *args, **kwargs)
     )
     client.networks = networks
     # Images
@@ -140,7 +140,7 @@ def docker_hub_settings(mocker: MockerFixture) -> Settings:
     settings.selenium_grid.SELENIUM_HUB_PORT = 4444
     settings.selenium_grid.MAX_BROWSER_INSTANCES = 8
     settings.selenium_grid.BROWSER_CONFIGS = {
-        "chrome": BrowserConfig(
+        BrowserType.CHROME: BrowserConfig(
             image="selenium/node-chrome:latest",
             resources=ContainerResources(memory="512M", cpu="0.5"),
             port=4444,
@@ -227,7 +227,7 @@ def k8s_hub_settings(mocker: MockerFixture) -> Settings:
     settings.selenium_grid.MAX_BROWSER_INSTANCES = 8
     settings.selenium_grid.SELENIUM_HUB_PORT = 4444
     settings.selenium_grid.BROWSER_CONFIGS = {
-        "chrome": BrowserConfig(
+        BrowserType.CHROME: BrowserConfig(
             image="selenium/node-chrome:latest",
             resources=ContainerResources(memory="512M", cpu="0.5"),
             port=4444,
@@ -253,56 +253,21 @@ def k8s_backend(
 ) -> Generator[KubernetesHubBackend, None, None]:
     """Fixture that yields a KubernetesHubBackend instance with mocked K8s clients."""
 
-    # # Instead of just patching the classes, create proper mock instances
-    # mock_config_manager = mocker.MagicMock()
-    # mock_url_resolver = mocker.MagicMock()
-    # mock_resource_manager = mocker.MagicMock()
-
-    # # Set up the mock instances with required methods
-    # mock_config_manager.is_kind = False
-    # mock_url_resolver.get_hub_url.return_value = "http://mocked-url"
-    # mock_resource_manager.sleep = mocker.AsyncMock()
-
-    # # Patch the classes to return these instances
-    # mocker.patch(
-    #     "app.services.selenium_hub.core.kubernetes.k8s_config.KubernetesConfigManager",
-    #     return_value=mock_config_manager,
-    # )
-    # mocker.patch(
-    #     "app.services.selenium_hub.core.kubernetes.k8s_url_resolver.KubernetesUrlResolver",
-    #     return_value=mock_url_resolver,
-    # )
-    # mocker.patch(
-    #     "app.services.selenium_hub.core.kubernetes.k8s_resource_manager.KubernetesResourceManager",
-    #     return_value=mock_resource_manager,
-    # )
-
-    # Patch methods
-    # mocker.patch.object(
-    #     KubernetesHubBackend, "URL", new_callable=PropertyMock, return_value="http://mocked-url"
-    # )
-    # mocker.patch.object(
-    #     KubernetesHubBackend, "check_hub_health", new_callable=mocker.AsyncMock, return_value=True
-    # )
-
     core, apps = mock_k8s_apis
 
     backend = KubernetesHubBackend(k8s_hub_settings)
     backend.k8s_core = core
     backend.k8s_apps = apps
 
-    # Patch as AsyncMock so it can be awaited
-    # mocker.patch.object(backend.resource_manager, "sleep", new_callable=mocker.AsyncMock)
-
     yield backend
 
 
 def mock_k8s_service_ready_state(mocker: MockerFixture, backend: KubernetesHubBackend) -> None:
     """Mock Kubernetes service and endpoints to simulate ready state."""
-    mock_service = MagicMock()
+    mock_service = mocker.MagicMock()
     mock_service.spec.type = "NodePort"
-    mock_endpoints = MagicMock()
-    mock_subset = MagicMock()
+    mock_endpoints = mocker.MagicMock()
+    mock_subset = mocker.MagicMock()
     mock_subset.addresses = [MagicMock()]  # Non-empty addresses
     mock_endpoints.subsets = [mock_subset]
 

@@ -1,11 +1,11 @@
 import asyncio
-from typing import Any, ClassVar
-
-from app.services.selenium_hub.models import DeploymentMode
+from typing import ClassVar
 
 from .core.docker_backend import DockerHubBackend
 from .core.hub_backend import HubBackend
 from .core.kubernetes.backend import KubernetesHubBackend
+from .models import DeploymentMode
+from .models.browser import BrowserConfigs, BrowserType
 from .models.general_settings import SeleniumHubGeneralSettings
 
 
@@ -49,8 +49,8 @@ class SeleniumHubManager:
     async def create_browsers(
         self,
         count: int,
-        browser_type: str,
-        browser_configs: dict[str, Any],
+        browser_type: BrowserType,
+        browser_configs: BrowserConfigs,
     ) -> list[str]:
         if not await self.ensure_hub_running():
             raise RuntimeError("Failed to ensure Selenium Hub is running")

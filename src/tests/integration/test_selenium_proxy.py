@@ -67,8 +67,9 @@ def test_selenium_hub_ui_flow(
     assert "text/html" in response.headers["content-type"]
     assert "Selenium Grid" in response.text
 
-    # Test UI assets
     response = client.get(
-        f"{SELENIUM_HUB_PREFIX}/ui/static/js/main.d25b7c1c.js", auth=selenium_hub_basic_auth_headers
+        # f"{SELENIUM_HUB_PREFIX}/ui/static/js/main.d25b7c1c.js", auth=selenium_hub_basic_auth_headers # Used in older versions
+        f"{SELENIUM_HUB_PREFIX}/ui/index.js",
+        auth=selenium_hub_basic_auth_headers,
     )
     assert response.status_code == status.HTTP_200_OK

@@ -1,89 +1,44 @@
 # MCP Selenium Grid Test Suite
 
-This directory contains all tests for the MCP Selenium Grid Server. The test suite is organized to support unit, integration, and end-to-end (E2E) testing, using modern FastAPI and pytest best practices.
-
-## Test Organization
-
-```
-tests/
-├── unit/           # Unit tests (fast, isolated, all dependencies mocked)
-├── integration/    # Integration tests (real app logic, external services not mocked)
-├── e2e/            # End-to-end tests (real infrastructure, full workflows)
-└── conftest.py     # Shared fixtures and configuration
-```
+This directory contains all tests for the MCP Selenium Grid Server.
 
 ## Test Types
 
-### Unit Tests
+- **Unit tests** - Fast, isolated tests with mocked dependencies
+- **Integration tests** - Test component interactions with real services
+- **E2E tests** - Full workflow tests with real infrastructure
 
-- Test individual functions, classes, and modules in isolation.
-- All dependencies are mocked.
-- Fast and reliable.
-
-**Run unit tests:**
+## Running Tests
 
 ```bash
+# Run all tests
+uv run pytest
+
+# Run specific test types
 uv run pytest -m unit
-```
-
-### Integration Tests
-
-- Test how components work together (e.g., API endpoints, service interactions).
-- External services (Docker, Kubernetes) are not mocked; these tests interact with the real infrastructure or test doubles that simulate it.
-- Fast and reliable.
-
-**Run integration tests:**
-
-```bash
 uv run pytest -m integration
-```
-
-### End-to-End (E2E) Tests
-
-- Test complete workflows using real infrastructure (e.g., Selenium, Docker, Kubernetes).
-- These tests may require running containers or external services.
-- E2E tests are always run when you invoke pytest on the e2e directory.
-
-**Run E2E tests:**
-
-```bash
 uv run pytest -m e2e
+
+# Run specific tests by name
+uv run pytest -k "kubernetes"
+uv run pytest -k "docker"
 ```
 
-## Running All Tests
-
-To run the entire test suite (unit, integration, and E2E):
+## Coverage
 
 ```bash
-uv run pytest src/tests/ -v
+# Run tests with coverage
+uv run coverage run -m pytest -m unit
+
+# Show coverage report
+uv run coverage report
+
+# Generate HTML report
+uv run coverage html
 ```
 
-Or, with coverage:
+## Adding Tests
 
-```bash
-uv run pytest src/tests/ --cov=app --cov-report=term-missing
-```
-
-## Test Coverage
-
-- Coverage is measured for the `app` package.
-- Minimum coverage threshold is 80% (see `pyproject.toml`).
-- To generate an HTML coverage report:
-
-  ```bash
-  uv run pytest --cov=app --cov-report=html
-  # Open htmlcov/index.html in your browser
-  ```
-
-## Adding New Tests
-
-1. Place new tests in the appropriate directory (`unit/`, `integration/`, or `e2e/`).
-2. Use descriptive test names and docstrings.
-3. Prefer fixtures for setup/teardown logic (see `conftest.py`).
-4. Mark tests with `@pytest.mark.unit`, `@pytest.mark.integration`, or `@pytest.mark.e2e` as appropriate.
-
-## Notes
-
-- All dependencies and test tools are managed with [uv](https://github.com/astral-sh/uv). Use `uv` for all installs and test runs.
-- The test suite is warning-free and compatible with the latest FastAPI, pytest, and Python versions.
-- For more details, see the main project README and `pyproject.toml` for configuration specifics.
+1. Place tests in the appropriate directory (`unit/`, `integration/`, or `e2e/`)
+2. Use descriptive test names
+3. Mark tests with appropriate pytest markers

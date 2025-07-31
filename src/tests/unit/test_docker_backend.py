@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.services.selenium_hub.core.docker_backend import DockerHubBackend
-from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
+from app.services.selenium_hub.models.browser import BrowserConfig, BrowserType, ContainerResources
 from docker.errors import APIError
 
 
@@ -43,12 +43,14 @@ async def test_create_browser_success(docker_backend: DockerHubBackend, mocker: 
         "run",
         return_value=mocker.MagicMock(id="container-123456789012"),
     )
-    browser_config = BrowserConfig(
-        image="selenium/node-chrome:latest",
-        resources=ContainerResources(memory="1G", cpu="1"),
-        port=4444,
-    )
-    result = await docker_backend.create_browsers(1, "chrome", {"chrome": browser_config})
+    browser_configs = {
+        BrowserType.CHROME: BrowserConfig(
+            image="selenium/node-chrome:latest",
+            resources=ContainerResources(memory="1G", cpu="1"),
+            port=4444,
+        )
+    }
+    result = await docker_backend.create_browsers(1, BrowserType.CHROME, browser_configs)
     assert result is not None
     assert isinstance(result[0], str)
 
@@ -57,12 +59,14 @@ async def test_create_browser_success(docker_backend: DockerHubBackend, mocker: 
 @pytest.mark.asyncio
 async def test_create_browser_failure(docker_backend: DockerHubBackend, mocker: MagicMock) -> None:
     mocker.patch.object(docker_backend.client.containers, "run", side_effect=APIError("fail"))
-    browser_config = BrowserConfig(
-        image="selenium/node-chrome:latest",
-        resources=ContainerResources(memory="1G", cpu="1"),
-        port=4444,
-    )
-    result = await docker_backend.create_browsers(1, "chrome", {"chrome": browser_config})
+    browser_configs = {
+        BrowserType.CHROME: BrowserConfig(
+            image="selenium/node-chrome:latest",
+            resources=ContainerResources(memory="1G", cpu="1"),
+            port=4444,
+        )
+    }
+    result = await docker_backend.create_browsers(1, BrowserType.CHROME, browser_configs)
     assert result == []
 
 
@@ -84,12 +88,14 @@ async def test_create_browser_pulls_image_if_not_found(
         "run",
         return_value=mocker.MagicMock(id="container-123456789012"),
     )
-    browser_config = BrowserConfig(
-        image="selenium/node-chrome:latest",
-        resources=ContainerResources(memory="1G", cpu="1"),
-        port=4444,
-    )
-    result = await docker_backend.create_browsers(1, "chrome", {"chrome": browser_config})
+    browser_configs = {
+        BrowserType.CHROME: BrowserConfig(
+            image="selenium/node-chrome:latest",
+            resources=ContainerResources(memory="1G", cpu="1"),
+            port=4444,
+        )
+    }
+    result = await docker_backend.create_browsers(1, BrowserType.CHROME, browser_configs)
     assert result is not None
     assert isinstance(result[0], str)
     mock_image_pull.assert_called_once_with("selenium/node-chrome:latest")

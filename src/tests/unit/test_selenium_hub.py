@@ -11,7 +11,7 @@ from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.core.docker_backend import DockerHubBackend
 from app.services.selenium_hub.core.kubernetes import KubernetesHubBackend
 from app.services.selenium_hub.models import DeploymentMode
-from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
+from app.services.selenium_hub.models.browser import BrowserConfig, BrowserType, ContainerResources
 from app.services.selenium_hub.models.kubernetes_settings import KubernetesSettings
 from app.services.selenium_hub.models.selenium_settings import SeleniumGridSettings
 from pydantic import SecretStr
@@ -186,10 +186,10 @@ async def test_create_browsers(
     Expected:
         The create_browsers method should return a list containing the expected browser ID and be called once with the correct arguments.
     """
-    result = await hub.create_browsers(browser_type="chrome", count=1)
+    result = await hub.create_browsers(browser_type=BrowserType.CHROME, count=1)
     assert result[0] == expected_browser_id
     hub._manager.backend.create_browsers.assert_called_once_with(  # type: ignore
-        1, "chrome", hub.settings.selenium_grid.BROWSER_CONFIGS
+        1, BrowserType.CHROME, hub.settings.selenium_grid.BROWSER_CONFIGS
     )
 
 
@@ -243,7 +243,7 @@ async def test_create_browser(
     Expected:
         The create_browsers method should return a list containing the expected browser ID.
     """
-    browser_ids = await hub.create_browsers(browser_type="chrome", count=1)
+    browser_ids = await hub.create_browsers(browser_type=BrowserType.CHROME, count=1)
 
     assert len(browser_ids) == 1
     assert browser_ids[0] == expected_browser_id
@@ -255,13 +255,13 @@ async def test_create_browser(
     "browser_type,count,expected_error,error_message",
     [
         ("invalid", 1, KeyError, "Unsupported browser type: invalid"),
-        ("chrome", 0, ValueError, "Browser count must be positive"),
-        ("chrome", -1, ValueError, "Browser count must be positive"),
+        (BrowserType.CHROME, 0, ValueError, "Browser count must be positive"),
+        (BrowserType.CHROME, -1, ValueError, "Browser count must be positive"),
     ],
 )
 async def test_create_browsers_validates_input(
     selenium_hub_docker_backend: SeleniumHub,
-    browser_type: str,
+    browser_type: BrowserType,
     count: int,
     expected_error: type[Exception],
     error_message: str,
@@ -317,11 +317,11 @@ async def test_create_browsers_handles_max_instances(
     if should_raise:
         with pytest.raises(ValueError, match="Maximum browser instances exceeded"):
             await selenium_hub_docker_backend.create_browsers(
-                browser_type="chrome", count=requested_count
+                browser_type=BrowserType.CHROME, count=requested_count
             )
     else:
         result = await selenium_hub_docker_backend.create_browsers(
-            browser_type="chrome", count=requested_count
+            browser_type=BrowserType.CHROME, count=requested_count
         )
         assert len(result) == requested_count
 
@@ -348,7 +348,7 @@ async def test_create_browsers_with_insufficient_resources(
         side_effect=ValueError("Insufficient resources"),
     )
     with pytest.raises(ValueError, match="Insufficient resources"):
-        await selenium_hub_docker_backend.create_browsers(browser_type="chrome", count=1)
+        await selenium_hub_docker_backend.create_browsers(browser_type=BrowserType.CHROME, count=1)
 
 
 @pytest.mark.unit
@@ -390,12 +390,13 @@ async def test_singleton_behavior() -> None:
         API_V1_STR="/api/v1",
         API_TOKEN=SecretStr("test-token"),
         selenium_grid=SeleniumGridSettings(
+            HUB_IMAGE="selenium/hub:latest",
             USER=SecretStr("user"),
             PASSWORD=SecretStr("pass"),
             MAX_BROWSER_INSTANCES=2,
             SE_NODE_MAX_SESSIONS=1,
             BROWSER_CONFIGS={
-                "chrome": BrowserConfig(
+                BrowserType.CHROME: BrowserConfig(
                     image="selenium/node-chrome:latest",
                     port=5555,
                     resources=ContainerResources(memory="1G", cpu="0.5"),

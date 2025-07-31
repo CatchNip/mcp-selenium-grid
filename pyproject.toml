@@ -14,24 +14,28 @@ version = "0.1.0"
 description = "MCP Server for managing Selenium Grid instances"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "falamarcao" }
 ]
 dependencies = [
     "fastapi[standard]>=0.115.14", # Web framework
+    "fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.8",
     "fastapi-mcp>=0.3.4", # MCP integration for FastAPI
     "pydantic[email]>=2.11.7", # Data validation, email support
     "pydantic-settings>=2.10.1", # Settings management (latest is 2.2.1)
     "docker>=7.1.0", # Docker API client
     "kubernetes>=33.1.0", # Kubernetes API client3
+    "typer>=0.16.0",
     "prometheus-client>=0.22.1", # Prometheus metrics (latest is 0.20.0)
     "prometheus-fastapi-instrumentator>=7.1.0",
     "httpx>=0.28.1",
+    "psutil>=7.0.0",
+    "uvicorn>=0.35.0",
 ]
 
 [project.scripts]
-helm-selenium-grid = "scripts.helm.main:app"
+mcp-selenium-grid = "app.__main__:main"
 
 [tool.uv]
 dev-dependencies = [
@@ -41,7 +45,7 @@ dev-dependencies = [
     "types-docker>=7.1.0.20250523",
     "types-pyyaml>=6.0.12.20250516",
     "kubernetes-stubs-elephant-fork>=33.1.0",
-    "typer>=0.16.0",
+    "types-psutil>=7.0.0.20250601",
 ]
 
 [project.optional-dependencies]
@@ -62,7 +66,7 @@ packages = ["src/app", "scripts"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 src = ["src/app", "src/tests"]
 
 [tool.ruff.lint]
@@ -86,7 +90,7 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = "fastapi_mcp"
+module = ["fastapi_mcp", "sh"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

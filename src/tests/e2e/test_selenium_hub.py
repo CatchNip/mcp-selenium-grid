@@ -10,7 +10,7 @@ from app.services.selenium_hub.models import DeploymentMode
 
 
 @pytest.mark.e2e
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 @pytest.mark.parametrize("deployment_mode", [DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
 async def test_check_hub_health(deployment_mode: DeploymentMode) -> None:
     """Test that check_hub_health returns True when the hub is healthy."""

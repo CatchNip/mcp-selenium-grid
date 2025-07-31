@@ -1,11 +1,13 @@
 """Selenium Hub service for managing browser instances."""
 
-import asyncio
-from typing import Optional
+from __future__ import annotations
 
-from app.services.metrics import track_browser_metrics, track_hub_metrics
+import asyncio
+
+from app.services.metrics import track_browser_metrics, track_hub_metrics  # TODO: refactor and test
 
 from .manager import SeleniumHubManager
+from .models.browser import BrowserType
 from .models.general_settings import SeleniumHubGeneralSettings
 
 
@@ -23,22 +25,22 @@ class SeleniumHub:
     Attributes:
         settings (SeleniumHubBaseSettings): Application settings used to configure the hub and browsers
         _manager (SeleniumHubManager): Manager instance that handles the actual hub operations
-        browser_configs (dict[str, BrowserConfig]): Configuration for supported browser types
+        browser_configs (BrowserConfigs): Configuration for supported browser types
 
     Class Variables:
-        _instance (Optional[SeleniumHub]): The singleton instance of the class
+        _instance (SeleniumHub | None): The singleton instance of the class
         _initialized (bool): Flag indicating whether the instance has been initialized
     """
 
-    _instance: Optional["SeleniumHub"] = None
+    _instance: SeleniumHub | None = None
     _initialized: bool = False
 
-    def __new__(cls, settings: Optional[SeleniumHubGeneralSettings] = None) -> "SeleniumHub":
+    def __new__(cls, settings: SeleniumHubGeneralSettings | None = None) -> "SeleniumHub":
         """
         Create or return the singleton instance.
 
         Args:
-            settings (Optional[SeleniumHubGeneralSettings]): Application settings. Required for first initialization.
+            settings (SeleniumHubGeneralSettings | None): Application settings. Required for first initialization.
 
         Returns:
             SeleniumHub: The singleton instance
@@ -52,7 +54,7 @@ class SeleniumHub:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, settings: Optional[SeleniumHubGeneralSettings] = None) -> None:
+    def __init__(self, settings: SeleniumHubGeneralSettings | None = None) -> None:
         """
         Initialize or update the singleton instance.
 
@@ -66,7 +68,7 @@ class SeleniumHub:
         - Updates browser configs if needed
 
         Args:
-            settings (Optional[SeleniumHubBaseSettings]): Application settings. Required for first initialization.
+            settings (SeleniumHubBaseSettings | None): Application settings. Required for first initialization.
 
         Raises:
             ValueError: If settings is None during first initialization
@@ -142,13 +144,13 @@ class SeleniumHub:
             return False
 
     @track_browser_metrics()
-    async def create_browsers(self, count: int, browser_type: str) -> list[str]:
+    async def create_browsers(self, count: int, browser_type: BrowserType) -> list[str]:
         """
         Create the specified number of browser instances of the given type.
 
         Args:
             count (int): Number of browser instances to create
-            browser_type (str): Type of browser to create (must be in browser_configs)
+            browser_type (BrowserType): Type of browser to create (must be in browser_configs)
 
         Returns:
             list[str]: List of created browser IDs

@@ -1,7 +1,6 @@
 """Utility functions for Helm operations."""
 
 import subprocess
-from typing import Optional
 
 import typer
 
@@ -18,8 +17,8 @@ def check_helm_installed() -> str:
 
 def run_helm_command(
     cmd_args: list[str],
-    kube_context: Optional[str] = None,
-    kubeconfig: Optional[str] = None,
+    kube_context: str | None = None,
+    kubeconfig: str | None = None,
     debug: bool = False,
 ) -> None:
     """Run the Helm command.

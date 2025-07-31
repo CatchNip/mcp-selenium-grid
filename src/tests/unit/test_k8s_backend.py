@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from app.services.selenium_hub.core.kubernetes import KubernetesHubBackend, ResourceType
-from app.services.selenium_hub.models.browser import BrowserConfig, ContainerResources
+from app.services.selenium_hub.models.browser import BrowserConfig, BrowserType, ContainerResources
 from kubernetes.client.exceptions import ApiException
 from pytest_mock import MockerFixture
 
@@ -136,14 +136,14 @@ async def test_create_browsers_success(
     """Test that create_browsers returns a list of browser IDs on success."""
     backend = k8s_backend
     browser_configs = {
-        "chrome": BrowserConfig(
+        BrowserType.CHROME: BrowserConfig(
             image="selenium/node-chrome:latest",
             resources=ContainerResources(memory="1G", cpu="1"),
             port=4444,
         )
     }
     count = 2
-    browser_type = "chrome"
+    browser_type = BrowserType.CHROME
 
     # Mock successful pod creation
     mocker.patch.object(backend.k8s_core, "create_namespaced_pod", return_value=MagicMock())
@@ -165,14 +165,14 @@ async def test_create_browsers_with_retries(
     side_effects = [api_error] * (backend.settings.kubernetes.MAX_RETRIES - 1) + [MagicMock()]
     mocker.patch.object(backend.k8s_core, "create_namespaced_pod", side_effect=side_effects)
     browser_configs = {
-        "chrome": BrowserConfig(
+        BrowserType.CHROME: BrowserConfig(
             image="selenium/node-chrome:latest",
             resources=ContainerResources(memory="1G", cpu="1"),
             port=4444,
         )
     }
     count = 1
-    browser_type = "chrome"
+    browser_type = BrowserType.CHROME
     browser_ids = await backend.create_browsers(count, browser_type, browser_configs)
     assert isinstance(browser_ids, list)
     assert len(browser_ids) == count
@@ -189,14 +189,14 @@ async def test_create_browsers_failure_after_retries(
     api_error = ApiException(status=500, reason="Internal Server Error")
     mocker.patch.object(backend.k8s_core, "create_namespaced_pod", side_effect=api_error)
     browser_configs = {
-        "chrome": BrowserConfig(
+        BrowserType.CHROME: BrowserConfig(
             image="selenium/node-chrome:latest",
             resources=ContainerResources(memory="1G", cpu="1"),
             port=4444,
         )
     }
     count = 1
-    browser_type = "chrome"
+    browser_type = BrowserType.CHROME
     browser_ids = await backend.create_browsers(count, browser_type, browser_configs)
     assert browser_ids == []
 

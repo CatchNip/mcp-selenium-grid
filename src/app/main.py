@@ -40,7 +40,7 @@ def create_application() -> FastAPI:
                 raise RuntimeError("Failed to ensure Selenium Hub is running")
 
             # Then wait for the hub to be healthy
-            if not await hub.wait_for_hub_healthy():
+            if not await hub.wait_for_hub_healthy(check_interval=5):
                 raise RuntimeError("Selenium Hub failed to become healthy")
 
         except Exception as e:

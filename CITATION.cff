@@ -1,0 +1,21 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: MCP Selenium Grid
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - given-names: Marco
+    email: falamarcao@gmail.com
+repository-code: "https://github.com/Falamarcao/mcp-selenium-grid"
+abstract: " enables AI Agents to request and manage Selenium browser instances through a secure API. Perfect for your automated browser testing needs! "
+keywords:
+  - selenium grid
+  - browser automation
+  - mcp server
+  - webscraping
+  - docker
+  - kubernetes
+  - fastapi
+license: MIT

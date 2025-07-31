@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from ..models.browser import BrowserConfig
+from ..models.browser import BrowserConfigs, BrowserType
 
 
 class HubBackend(ABC):
@@ -39,7 +39,10 @@ class HubBackend(ABC):
 
     @abstractmethod
     async def create_browsers(
-        self, count: int, browser_type: str, browser_configs: dict[str, BrowserConfig]
+        self,
+        count: int,
+        browser_type: BrowserType,
+        browser_configs: BrowserConfigs,
     ) -> list[str]:
         pass
 
@@ -69,6 +72,7 @@ class HubBackend(ABC):
             async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), auth=auth) as client:
                 response = await client.get(url)
                 if response.status_code == httpx.codes.OK:
+                    logging.info("Health check sucess.")
                     return True
                 else:
                     try:

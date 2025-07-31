@@ -34,6 +34,7 @@ FORWARDED_HEADERS = {
     "cache-control",
 }
 
+
 router = APIRouter(prefix=SELENIUM_HUB_PREFIX, tags=["Selenium Hub"])
 logger = logging.getLogger(__name__)
 
@@ -163,6 +164,16 @@ async def selenium_hub_root_proxy(
     return await proxy_selenium_request(request, selenium_url, basic_auth, follow_redirects=True)
 
 
+@router.get(
+    "/ui",
+    include_in_schema=False,
+    response_class=RedirectResponse,
+)
+async def selenium_hub_ui_redirect() -> RedirectResponse:
+    """Redirect {SELENIUM_HUB_PREFIX}/ui to {SELENIUM_HUB_PREFIX}/ui/ for SPA asset resolution."""
+    return RedirectResponse(url=f"{SELENIUM_HUB_PREFIX}/ui/")
+
+
 @router.api_route(
     "/{path:path}",
     methods=["GET", "POST", "DELETE"],
@@ -179,27 +190,17 @@ async def selenium_hub_path_proxy(
     return await proxy_selenium_request(request, selenium_url, basic_auth)
 
 
-@router.get(
-    "/ui",
-    include_in_schema=False,
-    response_class=RedirectResponse,
-)
-async def selenium_hub_ui_redirect() -> RedirectResponse:
-    """Redirect {SELENIUM_HUB_PREFIX}/ui to {SELENIUM_HUB_PREFIX}/ui/ for SPA asset resolution."""
-    return RedirectResponse(url=f"{SELENIUM_HUB_PREFIX}/ui/")
-
-
-@router.api_route(
-    "/ui/{path:path}",
-    methods=["GET", "POST", "DELETE"],
-    response_class=Response,
-)
-async def selenium_hub_ui_proxy(
-    request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-    basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
-    path: str = "",
-) -> Response:
-    """Proxy all Selenium Hub UI static assets and API routes (requires Basic Auth)."""
-    selenium_url = _get_selenium_hub_url(f"ui/{path}")
-    return await proxy_selenium_request(request, selenium_url, basic_auth)
+# @router.api_route(
+#     "/ui/{path:path}",
+#     methods=["GET", "POST", "DELETE"],
+#     response_class=Response,
+# )
+# async def selenium_hub_ui_proxy(
+#     request: Request,
+#     settings: Annotated[Settings, Depends(get_settings)],
+#     basic_auth: HTTPBasicCredentials = Depends(verify_basic_auth),
+#     path: str = "",
+# ) -> Response:
+#     """Proxy all Selenium Hub UI static assets and API routes (requires Basic Auth)."""
+#     selenium_url = _get_selenium_hub_url(f"ui/{path}")
+#     return await proxy_selenium_request(request, selenium_url, basic_auth)

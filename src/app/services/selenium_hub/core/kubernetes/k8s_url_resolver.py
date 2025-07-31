@@ -1,7 +1,6 @@
 import logging
 import time
 from os import environ
-from typing import Optional
 
 from kubernetes.client import CoreV1Api
 
@@ -21,12 +20,16 @@ class KubernetesUrlResolver:
 
     def get_hub_url(self) -> str:
         FALLBACK_URL = f"http://localhost:{self.settings.selenium_grid.SELENIUM_HUB_PORT}"
+
         if "KUBERNETES_SERVICE_HOST" in environ:
             return self._get_in_cluster_url()
-        # For KinD environments, use port-forwarded URL since port-forward is used
+
         if self._is_kind:
+            # For KinD environments, use port-forwarded URL
+            FALLBACK_URL = f"http://localhost:{self.settings.kubernetes.PORT_FORWARD_LOCAL_PORT}"
             logging.info(f"Using port-forwarded URL for KinD: {FALLBACK_URL}")
             return FALLBACK_URL
+
         return self._get_nodeport_url(FALLBACK_URL)
 
     def _get_in_cluster_url(self) -> str:
@@ -47,7 +50,9 @@ class KubernetesUrlResolver:
                     time.sleep(retry_delay)
                     retry_delay *= 2
             except Exception as e:
-                self._handle_nodeport_error(e, attempt, max_retries, retry_delay, fallback_url)
+                logging.error(
+                    f"Error getting NodePort URL (attempt {attempt + 1}/{max_retries}): {e}. Fallback: {fallback_url}"
+                )
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
                     retry_delay *= 2
@@ -56,7 +61,7 @@ class KubernetesUrlResolver:
         return fallback_url
 
     @handle_kubernetes_exceptions(ErrorStrategy.STRICT)
-    def _try_get_nodeport_url(self, attempt: int, max_retries: int) -> Optional[str]:
+    def _try_get_nodeport_url(self, attempt: int, max_retries: int) -> str | None:
         logging.info(
             f"Attempt {attempt + 1}/{max_retries}: Getting NodePort for service {self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME} in namespace {self.settings.kubernetes.NAMESPACE}"
         )
@@ -79,10 +84,3 @@ class KubernetesUrlResolver:
                 logging.info(f"Resolved NodePort URL: {url}")
                 return url
         return None
-
-    def _handle_nodeport_error(
-        self, error: Exception, attempt: int, max_retries: int, retry_delay: int, fallback_url: str
-    ) -> None:
-        logging.error(
-            f"Error getting NodePort URL (attempt {attempt + 1}/{max_retries}): {error}. Fallback: {fallback_url}"
-        )
