@@ -2,9 +2,15 @@ name: Tests
 
 on:
   push:
+    paths:
+      - 'src/**/*.py'
+      - 'scripts/**/*.py'
     branches:
       - main
   pull_request:
+    paths:
+      - 'src/**/*.py'
+      - 'scripts/**/*.py'
     types:
       - opened
       - synchronize

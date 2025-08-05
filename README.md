@@ -1,10 +1,13 @@
 # 🤖 MCP Selenium Grid
 
-[![Lint](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.1_lint/badge.svg)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.1_lint.yml)
-[![Unit Tests](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.2_unit_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.2_unit_tests.yml.yml)
-[![Docker Tests](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.3_docker_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.3_docker_tests.yml.yml)
-[![Kubernetes Tests (KinD)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.4_kubernetes_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1.4_kubernetes_tests.yml)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/CatchNip/mcp-selenium-grid?include_prereleases)](https://github.com/CatchNip/mcp-selenium-grid/releases)
+[![Tests](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1_tests.yml)
+
+![GitHub Last Commit](https://img.shields.io/github/last-commit/seleniumhq/docker-selenium)
+[![GitHub Release](https://img.shields.io/github/v/release/seleniumhq/docker-selenium?link=https%3A%2F%2Fgithub.com%2Fseleniumhq%2Fdocker-selenium%2Freleases%2Flatest&label=latest%20Image)](https://github.com/seleniumhq/docker-selenium/releases/)
+![GitHub Commits Since Latest Release](https://img.shields.io/github/commits-since/seleniumhq/docker-selenium/latest)
+![GitHub Commit Activity](https://img.shields.io/github/commit-activity/m/seleniumhq/docker-selenium)
+![GitHub Contributors](https://img.shields.io/github/contributors/seleniumhq/docker-selenium?label=Contributors%20-%20Thank%20you!)
+
 [![License](https://img.shields.io/github/license/CatchNip/mcp-selenium-grid)](LICENSE)
 
 A Model Context Protocol (MCP) server for managing Selenium Grid browser instances. Useful for browser automation and testing workflows.
