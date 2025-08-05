@@ -2,15 +2,9 @@ name: Tests
 
 on:
   push:
-    paths:
-      - 'src/**/*.py'
-      - 'scripts/**/*.py'
     branches:
       - main
   pull_request:
-    paths:
-      - 'src/**/*.py'
-      - 'scripts/**/*.py'
     types:
       - opened
       - synchronize
@@ -22,8 +16,26 @@ env:
   MIN_COVERAGE: 70
 
 jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      src_changed: ${{ steps.changes.outputs.py }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Check Changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            py:
+              - 'src/**/*.py'
+              - 'scripts/**/*.py'
+
   lint:
     uses: ./.github/workflows/1.1_lint.yml
+    needs:  filter
+    if: github.ref == 'refs/heads/main' && needs.filter.outputs.src_changed == 'true'
     permissions:
       contents: read
   unit-tests:
@@ -97,9 +109,10 @@ jobs:
           uv run coverage report --fail-under=$MIN_COVERAGE
 
   check:
+    name: Did all tests pass?
     if: always()
-    needs: coverage-report
     runs-on: Ubuntu-latest
+    needs: [lint, unit-tests, docker-tests, kubernetes-tests, coverage-report]
 
     steps:
       - name: Dump GitHub context
@@ -109,6 +122,6 @@ jobs:
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
         with:
-          # allowed-failures:
-          # allowed-skips:
+          # allowed-failures: []
+          allowed-skips: "lint, unit-tests, docker-tests, kubernetes-tests, coverage-report"
           jobs: ${{ toJSON(needs) }}

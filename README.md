@@ -1,13 +1,11 @@
 # 🤖 MCP Selenium Grid
 
 [![Tests](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1_tests.yml/badge.svg?branch=main)](https://github.com/CatchNip/mcp-selenium-grid/actions/workflows/1_tests.yml)
-
-![GitHub Last Commit](https://img.shields.io/github/last-commit/seleniumhq/docker-selenium)
-[![GitHub Release](https://img.shields.io/github/v/release/seleniumhq/docker-selenium?link=https%3A%2F%2Fgithub.com%2Fseleniumhq%2Fdocker-selenium%2Freleases%2Flatest&label=latest%20Image)](https://github.com/seleniumhq/docker-selenium/releases/)
-![GitHub Commits Since Latest Release](https://img.shields.io/github/commits-since/seleniumhq/docker-selenium/latest)
-![GitHub Commit Activity](https://img.shields.io/github/commit-activity/m/seleniumhq/docker-selenium)
-![GitHub Contributors](https://img.shields.io/github/contributors/seleniumhq/docker-selenium?label=Contributors%20-%20Thank%20you!)
-
+![GitHub Last Commit](https://img.shields.io/github/last-commit/CatchNip/mcp-selenium-grid)
+[![GitHub Release](https://img.shields.io/github/v/release/CatchNip/mcp-selenium-grid?include_prereleases)](https://github.com/CatchNip/mcp-selenium-grid/releases)
+![GitHub commits since latest release](https://img.shields.io/github/commits-since/CatchNip/mcp-selenium-grid/latest?include_prereleases)
+![GitHub Commit Activity](https://img.shields.io/github/commit-activity/m/CatchNip/mcp-selenium-grid)
+![GitHub Contributors](https://img.shields.io/github/contributors/CatchNip/mcp-selenium-grid?label=Contributors)
 [![License](https://img.shields.io/github/license/CatchNip/mcp-selenium-grid)](LICENSE)
 
 A Model Context Protocol (MCP) server for managing Selenium Grid browser instances. Useful for browser automation and testing workflows.

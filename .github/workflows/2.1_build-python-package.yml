@@ -25,6 +25,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: pypi-publishing
     permissions:
       id-token: write  # Required for trusted publishing to PyPI
       contents: read    # Required by actions/checkout and pypa publisher
@@ -64,6 +65,8 @@ jobs:
         if: ${{ inputs.publish == 'true' }}
         uses: pypa/gh-action-pypi-publish@v1.12.4
         with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true  # Optional, logs more info
 
       - name: Upload Python package to GitHub Release
