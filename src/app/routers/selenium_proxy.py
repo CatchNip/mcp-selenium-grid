@@ -174,12 +174,7 @@ async def selenium_hub_ui_redirect() -> RedirectResponse:
     return RedirectResponse(url=f"{SELENIUM_HUB_PREFIX}/ui/")
 
 
-@router.api_route(
-    "/{path:path}",
-    methods=["GET", "POST", "DELETE"],
-    response_class=Response,
-)
-async def selenium_hub_path_proxy(
+async def selenium_hub_proxy(
     request: Request,
     path: str,
     settings: Annotated[Settings, Depends(get_settings)],
@@ -190,6 +185,17 @@ async def selenium_hub_path_proxy(
     return await proxy_selenium_request(request, selenium_url, basic_auth)
 
 
+# Define routes for selenium_hub_path_proxy - `Avoiding UserWarning: Duplicate Operation ID`
+for method in ["GET", "POST", "DELETE"]:
+    router.api_route(
+        "/{path:path}",
+        methods=[method],
+        name=f"selenium_hub_{method.lower()}",
+        response_class=Response,
+    )(selenium_hub_proxy)
+
+
+# Selenium grid old versions
 # @router.api_route(
 #     "/ui/{path:path}",
 #     methods=["GET", "POST", "DELETE"],
