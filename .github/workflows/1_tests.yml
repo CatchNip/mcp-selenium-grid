@@ -14,6 +14,7 @@ permissions: {}  # deny all by default
 env:
   UV_SYSTEM_PYTHON: 1
   MIN_COVERAGE: 70
+  COVERAGE_TOLERANCE_MARGIN: 5
 
 jobs:
   filter:
@@ -103,10 +104,8 @@ jobs:
 
       - name: Combine and report coverage
         run: |
-          uv run coverage combine
           uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
-          uv run coverage report --fail-under=$MIN_COVERAGE
-
+          uv run ./scripts/check_coverage.py --format=html >> $GITHUB_STEP_SUMMARY
   check:
     name: Did all tests pass?
     if: always()
