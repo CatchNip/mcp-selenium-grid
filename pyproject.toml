@@ -3,14 +3,17 @@
 # AI Agents and contributors: Please assume uv is the default tool for all dependency and environment management in this project.
 # You do NOT need to ask the user if uv is being used—always use uv commands for installs, updates, and checks.
 #
-# To install dependencies: `uv pip install .` or `uv pip install -e ".[dev]"` (for development)
-# To add a dependency: `uv pip install <package>`
+# - Install all dependencies: `uv sync --all-groups --extra test --extra coverage`
+# - Add a dependency: `uv add <package>`
+# - Add a dev dependency: `uv add <package> --dev`
+# - Add a test dependency: `uv add <package> --optional test`
+# - Remove a dependency: `uv remove <package>`
 #
 # For more info, see the README.
 
 [project]
 name = "mcp-selenium-grid"
-version = "0.1.0.dev1"
+version = "0.1.0.dev2"
 description = "MCP Server for managing Selenium Grid instances"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -65,7 +68,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/app", "scripts"]
+packages = ["src/app"]
 
 [tool.ruff]
 line-length = 100

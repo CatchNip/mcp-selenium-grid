@@ -11,7 +11,6 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 # Copy project files
 COPY pyproject.toml config.yaml LICENSE README.md uv.lock ./mcp-selenium-grid/
 COPY deployment ./mcp-selenium-grid/deployment
-COPY scripts ./mcp-selenium-grid/scripts
 COPY src/app ./mcp-selenium-grid/src/app
 
 # Install the application dependencies

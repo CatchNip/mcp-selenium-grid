@@ -1,25 +1,8 @@
 from decimal import Decimal
-from pathlib import Path
 
-from app.core.settings import Settings
 from kubernetes.utils import parse_quantity  # type: ignore
 
-from .models import K8sName
-
-
-def resolve_namespace_context_and_kubeconfig(
-    cli_release_name_arg: str,
-    cli_namespace_arg: str,
-    cli_kube_context_arg: str,
-    cli_kubeconfig_arg: Path,
-    settings: Settings,
-) -> tuple[K8sName, K8sName, str, str]:
-    """Resolves the effective namespace and Kubernetes context."""
-    release_name_obj = K8sName(name=cli_release_name_arg)
-    namespace_obj = K8sName(name=cli_namespace_arg)
-    resolved_kubeconfig_str: str = str(cli_kubeconfig_arg.expanduser())
-
-    return release_name_obj, namespace_obj, cli_kube_context_arg, resolved_kubeconfig_str
+from app.core.settings import Settings
 
 
 def format_memory(bytes_val: Decimal) -> str:

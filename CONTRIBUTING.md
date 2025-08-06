@@ -131,6 +131,8 @@ kubectl config set-context k3s-selenium-grid \
 ```bash
 # See command help
 uv run mcp-selenium-grid helm --help
+uv run mcp-selenium-grid helm deploy --help
+uv run mcp-selenium-grid helm uninstall --help
 
 # Deploy using default config
 uv run mcp-selenium-grid helm deploy
@@ -141,8 +143,6 @@ uv run mcp-selenium-grid helm deploy --context k3s-selenium-grid
 # Uninstall
 uv run mcp-selenium-grid helm uninstall --delete-namespace
 ```
-
-> See [scripts/helm/README.md](scripts/helm/README.md) for more details.
 
 ### 4. Start Server
 

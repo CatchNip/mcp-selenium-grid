@@ -7,12 +7,12 @@ from functools import lru_cache
 from pathlib import Path
 
 import typer
+
 from app.core.settings import Settings
 
 from .cli.helm import run_helm_command
 from .cli.kubectl import delete_namespace
-from .helpers import map_config_to_helm_values, resolve_namespace_context_and_kubeconfig
-from .models import HelmChartPath
+from .helpers import map_config_to_helm_values
 
 
 @lru_cache()
@@ -36,6 +36,7 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
             exists=True,
             dir_okay=True,
             file_okay=False,  # Ensure it's a directory
+            readable=True,
         ),
         release_name: str = typer.Option(
             settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
@@ -53,6 +54,9 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
             settings.kubernetes.KUBECONFIG,
             "--kubeconfig",
             help="Path to the kubeconfig file.",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
         ),
         debug: bool = typer.Option(
             False,
@@ -60,27 +64,15 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         ),
     ) -> None:
         """Deploy Selenium Grid using Helm CLI."""
-
-        # Validate inputs using Pydantic models
-        chart = HelmChartPath(path=chart_path)
-
-        release_name_obj, namespace_obj, effective_kube_context, effective_kubeconfig = (
-            resolve_namespace_context_and_kubeconfig(
-                cli_release_name_arg=release_name,
-                cli_namespace_arg=namespace,
-                cli_kube_context_arg=context,
-                cli_kubeconfig_arg=kubeconfig,
-                settings=settings,
-            )
-        )
+        kubeconfig_expanduser_str = str(kubeconfig.expanduser())
 
         if debug:
             typer.echo("--- Debug Information ---")
-            typer.echo(f"Chart: {chart.path}")
-            typer.echo(f"Release Name: {release_name_obj}")
-            typer.echo(f"Namespace: {namespace_obj}")
-            typer.echo(f"Context: {effective_kube_context or 'Default'}")
-            typer.echo(f"kubeconfig: {effective_kubeconfig or 'Default'}")
+            typer.echo(f"Chart: {chart_path}")
+            typer.echo(f"Release Name: {release_name}")
+            typer.echo(f"Namespace: {namespace}")
+            typer.echo(f"Context: {context or 'Default'}")
+            typer.echo(f"kubeconfig: {kubeconfig_expanduser_str or 'Default'}")
             typer.echo("-------------------------")
 
         # Get Helm arguments
@@ -101,12 +93,12 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
                 "helm",
                 "upgrade",
                 "--install",
-                str(release_name_obj),
-                str(chart.path),
+                str(release_name),
+                str(chart_path),
                 # Use --namespace to ensure release metadata is stored in the same namespace as resources
                 # Use --create-namespace to ensure namespace exists before chart creates resources
                 "--namespace",
-                str(namespace_obj),
+                str(namespace),
                 "--create-namespace",
             ]
 
@@ -115,12 +107,12 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
                 cmd_args.extend(["-f", values_file_path])
 
             # Add kubeconfig if specified
-            if effective_kubeconfig:
-                cmd_args.extend(["--kubeconfig", effective_kubeconfig])
+            if kubeconfig_expanduser_str:
+                cmd_args.extend(["--kubeconfig", kubeconfig_expanduser_str])
 
             # Add context if specified
-            if effective_kube_context:
-                cmd_args.extend(["--kube-context", effective_kube_context])
+            if context:
+                cmd_args.extend(["--kube-context", context])
 
             # Add all --set arguments
             for arg in set_args:
@@ -128,13 +120,13 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
 
             run_helm_command(
                 cmd_args=cmd_args,
-                kube_context=effective_kube_context,
-                kubeconfig=effective_kubeconfig,
+                kube_context=context,
+                kubeconfig=kubeconfig_expanduser_str,
                 debug=debug,
             )
 
             typer.echo(
-                f"Helm release '{release_name_obj}' deployed/upgraded successfully in namespace '{namespace_obj}'."
+                f"Helm release '{release_name}' deployed/upgraded successfully in namespace '{namespace}'."
             )
         finally:
             if values_file_path:
@@ -159,6 +151,9 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
             settings.kubernetes.KUBECONFIG,
             "--kubeconfig",
             help="Path to the kubeconfig file.",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
         ),
         debug: bool = typer.Option(
             False,
@@ -171,56 +166,48 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
         ),
     ) -> None:
         """Uninstall Selenium Grid Helm release."""
-        release_name_obj, namespace_obj, effective_kube_context, effective_kubeconfig = (
-            resolve_namespace_context_and_kubeconfig(
-                cli_release_name_arg=release_name,
-                cli_namespace_arg=namespace,
-                cli_kube_context_arg=context,
-                cli_kubeconfig_arg=kubeconfig,
-                settings=get_settings(),
-            )
-        )
+        kubeconfig_expanduser_str = str(kubeconfig.expanduser())
 
         if debug:
             typer.echo("--- Debug Information ---")
-            typer.echo(f"Release Name: {release_name_obj}")
-            typer.echo(f"Namespace: {namespace_obj}")
-            typer.echo(f"Context: {effective_kube_context or 'Default'}")
-            typer.echo(f"kubeconfig: {effective_kubeconfig or 'Default'}")
+            typer.echo(f"Release Name: {release_name}")
+            typer.echo(f"Namespace: {namespace}")
+            typer.echo(f"Context: {context or 'Default'}")
+            typer.echo(f"kubeconfig: {kubeconfig_expanduser_str or 'Default'}")
             typer.echo("-------------------------")
 
         # Build the Helm command
         cmd_args = [
             "helm",
             "uninstall",
-            str(release_name_obj),
+            str(release_name),
             "--namespace",
-            str(namespace_obj),
+            str(namespace),
         ]
 
-        if effective_kubeconfig:
-            cmd_args.extend(["--kubeconfig", effective_kubeconfig])
+        if kubeconfig_expanduser_str:
+            cmd_args.extend(["--kubeconfig", kubeconfig_expanduser_str])
 
         # Add context if specified
-        if effective_kube_context:
-            cmd_args.extend(["--kube-context", effective_kube_context])
+        if context:
+            cmd_args.extend(["--kube-context", context])
 
         run_helm_command(
             cmd_args=cmd_args,
-            kube_context=effective_kube_context,
-            kubeconfig=effective_kubeconfig,
+            kube_context=context,
+            kubeconfig=kubeconfig_expanduser_str,
             debug=debug,
         )
 
         typer.echo(
-            f"Helm release '{release_name_obj}' uninstalled successfully from namespace '{namespace_obj}'."
+            f"Helm release '{release_name}' uninstalled successfully from namespace '{namespace}'."
         )
 
         if delete_ns:
             delete_namespace(
-                str(namespace_obj),
-                effective_kube_context,
-                effective_kubeconfig,
+                str(namespace),
+                context,
+                kubeconfig_expanduser_str,
                 debug,
             )
 

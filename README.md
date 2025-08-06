@@ -45,18 +45,18 @@ For Docker-based deployment, ensure Docker is running and use the Docker configu
       "command": "uvx",
       "args": ["mcp-selenium-grid", "server", "run",
         "--host", "127.0.0.1",
-        "--port", "8000",
+        "--port", "8000"
       ],
       "env": {
         "API_TOKEN": "CHANGE_ME",
-        "ALLOWED_ORIGINS": ["http://localhost:8000"],
+        "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
         "DEPLOYMENT_MODE": "docker",
         "SELENIUM_GRID__USERNAME": "USER",
         "SELENIUM_GRID__PASSWORD": "CHANGE_ME",
         "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
-        "SELENIUM_GRID__VNC_VIEW_ONLY": false,
-        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": 4,
-        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": 1,
+        "SELENIUM_GRID__VNC_VIEW_ONLY": "false",
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": "4",
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": "1"
       }
     }
   }
@@ -104,24 +104,25 @@ kubectl config set-context k3s-selenium-grid \
 
 ###### Deploy Selenium Grid
 
-Using kubernetes context name from [config.yaml](./config.yaml):
+Please run for help to get to know the available commands and parameters:
 
 ```bash
 uvx mcp-selenium-grid helm --help
+uvx mcp-selenium-grid helm deploy --help
+uvx mcp-selenium-grid helm uninstall --help
+```
+
+Deploy using default parameters:
+
+```bash
 uvx mcp-selenium-grid helm deploy
 ```
 
-For a given kubernetes context name:
+Uninstall using default parameters:
 
 ```bash
-uvx mcp-selenium-grid helm deploy --context k3s-selenium-grid
-```
-
-Uninstall:
-
-```bash
+# using default parameters
 uvx mcp-selenium-grid helm uninstall --delete-namespace
-uvx mcp-selenium-grid helm uninstall --context k3s-selenium-grid --delete-namespace
 ```
 
 ```json
@@ -131,22 +132,22 @@ uvx mcp-selenium-grid helm uninstall --context k3s-selenium-grid --delete-namesp
       "command": "uvx",
       "args": ["mcp-selenium-grid", "server", "run",
         "--host", "127.0.0.1",
-        "--port", "8000",
+        "--port", "8000"
       ],
       "env": {
         "API_TOKEN": "CHANGE_ME",
-        "ALLOWED_ORIGINS": ["http://localhost:8000"],
+        "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
         "DEPLOYMENT_MODE": "kubernetes",
         "SELENIUM_GRID__USERNAME": "USER",
         "SELENIUM_GRID__PASSWORD": "CHANGE_ME",
         "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
-        "SELENIUM_GRID__VNC_VIEW_ONLY": false,
-        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": 4,
-        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": 1,
+        "SELENIUM_GRID__VNC_VIEW_ONLY": "false",
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": "4",
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": "1",
         "KUBERNETES__KUBECONFIG": "~/.kube/config-local-k3s",
         "KUBERNETES__CONTEXT": "k3s-selenium-grid",
         "KUBERNETES__NAMESPACE": "selenium-grid-dev",
-        "KUBERNETES__SELENIUM_GRID_SERVICE_NAME": "selenium-grid",
+        "KUBERNETES__SELENIUM_GRID_SERVICE_NAME": "selenium-grid"
       }
     }
   }
@@ -165,7 +166,7 @@ uvx mcp-selenium-grid helm uninstall --context k3s-selenium-grid --delete-namesp
         "--init",
         "-p", "8000:80",
         "-e", "API_TOKEN=CHANGE_ME",
-        "-e", "ALLOWED_ORIGINS=http://localhost:8000",
+        "-e", "ALLOWED_ORIGINS=[\"http://127.0.0.1:8000\"]",
         "-e", "DEPLOYMENT_MODE=kubernetes", // required for docker
         "-e", "SELENIUM_GRID__USERNAME=USER",
         "-e", "SELENIUM_GRID__PASSWORD=CHANGE_ME",
@@ -177,7 +178,7 @@ uvx mcp-selenium-grid helm uninstall --context k3s-selenium-grid --delete-namesp
         "-e", "KUBERNETES__CONTEXT=k3s-selenium-grid",
         "-e", "KUBERNETES__NAMESPACE=selenium-grid-dev",
         "-e", "KUBERNETES__SELENIUM_GRID_SERVICE_NAME=selenium-grid",
-        "ghcr.io/falamarcao/mcp-selenium-grid:latest",
+        "ghcr.io/falamarcao/mcp-selenium-grid:latest"
       ]
     }
   }

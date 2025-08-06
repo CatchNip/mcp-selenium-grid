@@ -30,12 +30,11 @@ jobs:
           filters: |
             py:
               - 'src/**/*.py'
-              - 'scripts/**/*.py'
 
   lint:
     uses: ./.github/workflows/1.1_lint.yml
     needs:  filter
-    if: github.ref == 'refs/heads/main' && needs.filter.outputs.src_changed == 'true'
+    if: needs.filter.outputs.src_changed == 'true'
     permissions:
       contents: read
   unit-tests:

@@ -2,6 +2,8 @@
 
 This directory contains the deployment configurations for the Selenium Grid on Kubernetes using Helm.
 
+⚠️ Not meant to be used directly. Use `uvx mcp-selenium-grid helm deploy --help` instead. ⚠️
+
 ## Directory Structure
 
 ```txt

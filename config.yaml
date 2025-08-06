@@ -23,7 +23,7 @@ selenium_grid:
         memory: "1G"
         cpu: "0.5"
     undetected-chrome:
-      image: falamarcao/node-undetected-chrome:latest # not public yet (testing)
+      image: ghcr.io/catchnip/node-undetected-chrome:latest # not public yet (testing)
       port: 4444
       resources:
         memory: "1G"
