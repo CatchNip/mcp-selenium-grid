@@ -58,7 +58,7 @@ jobs:
           echo "KUBERNETES__KUBECONFIG=$kube_config" >> $GITHUB_ENV
 
       - name: Install dependencies
-        run: uv sync --locked --all-groups --extra test --extra coverage
+        run: uv sync --locked --all-groups --extra test
 
       - name: Deploy Selenium Grid to KinD
         run: uv run mcp-selenium-grid helm deploy

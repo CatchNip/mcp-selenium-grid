@@ -3,7 +3,7 @@
 # AI Agents and contributors: Please assume uv is the default tool for all dependency and environment management in this project.
 # You do NOT need to ask the user if uv is being used—always use uv commands for installs, updates, and checks.
 #
-# - Install all dependencies: `uv sync --all-groups --extra test --extra coverage`
+# - Install all dependencies: `uv sync --all-groups --extra test`
 # - Add a dependency: `uv add <package>`
 # - Add a dev dependency: `uv add <package> --dev`
 # - Add a test dependency: `uv add <package> --optional test`
@@ -57,10 +57,7 @@ test = [
     "pytest-mock>=3.14.1",
     "pytest-asyncio>=1.0.0", # Parallel test execution
     "pytest-sugar>=1.0.0",
-]
-
-coverage = [
-    "coverage[toml]>=7.9.2",
+    "coverage>=7.10.2",
 ]
 
 [build-system]
@@ -73,7 +70,7 @@ packages = ["src/app"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src/app", "src/tests"]
+src = ["src/app", "src/tests", "scripts"]
 
 [tool.ruff.lint]
 extend-select = [
@@ -96,7 +93,7 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["fastapi_mcp", "sh"]
+module = ["fastapi_mcp"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

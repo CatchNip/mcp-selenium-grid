@@ -30,7 +30,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --locked --all-groups --extra test --extra coverage
+        run: uv sync --locked --all-groups --extra test
 
       - name: Run Docker integration & E2E tests with coverage
         run: uv run coverage run --parallel-mode -m pytest -m "integration or e2e" -k "docker"

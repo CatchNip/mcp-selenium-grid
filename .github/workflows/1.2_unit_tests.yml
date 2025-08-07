@@ -28,7 +28,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --locked --all-groups --extra test --extra coverage
+        run: uv sync --locked --all-groups --extra test
 
       - name: Run code format
         run: uv run ruff format . --check

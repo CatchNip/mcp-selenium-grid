@@ -88,7 +88,7 @@ git clone git@github.com:Falamarcao/mcp-selenium-grid.git
 cd mcp-selenium-grid
 
 # Create a virtual environment and install dev/test dependencies
-uv sync --all-groups --extra test --extra coverage
+uv sync --all-groups --extra test
 ```
 
 ### 3. Kubernetes Setup (Optional)
@@ -178,8 +178,8 @@ uv run pytest -m integration
 uv run pytest -m e2e
 
 # Run with coverage
-uv run coverage run -m pytest -m unit
-uv run coverage report
+uv run scripts/rich-coverage.py
+uv run scripts/rich-coverage.py --format=html
 ```
 
 #### 🧪 CI & Workflow Testing
@@ -211,7 +211,7 @@ uv run ruff clean             # Clear ruff cache
 
 ## 📦 Dependency Management
 
-- Install all dependencies: `uv sync --all-groups --extra test --extra coverage`
+- Install all dependencies: `uv sync --all-groups --extra test`
 - Add a dependency: `uv add <package>`
 - Add a dev dependency: `uv add <package> --dev`
 - Add a test dependency: `uv add <package> --optional test`

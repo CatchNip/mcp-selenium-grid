@@ -96,16 +96,10 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: |
-            pyproject.toml
-            uv.lock
-      
-      - name: Install dependencies
-        run: uv sync --locked --extra coverage
+            scripts/rich-coverage.py.lock
 
       - name: Combine and report coverage
-        run: |
-          uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
-          uv run ./scripts/check_coverage.py --format=html >> $GITHUB_STEP_SUMMARY
+        run: uv run ./scripts/rich-coverage.py --format=html >> $GITHUB_STEP_SUMMARY # no need to install dependencies
   check:
     name: Did all tests pass?
     if: always()
