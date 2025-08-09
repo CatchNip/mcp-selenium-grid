@@ -1,14 +1,27 @@
-from os import getcwd
 from pathlib import Path
 from tomllib import load
 from typing import Any
 
-ROOT_DIR = Path(getcwd()).resolve()
+
+def find_pyproject_toml() -> Path:
+    """
+    Walks up the directory tree to find the project root
+    by looking for a pyproject.toml file.
+    """
+    project_root = None
+
+    current_dir = Path(__file__).resolve()
+    for parent in current_dir.parents:
+        if (parent / "pyproject.toml").is_file(follow_symlinks=False):
+            project_root = parent
+            break
+
+    if project_root:
+        return project_root / "pyproject.toml"
+    return Path()
 
 
-def load_value_from_toml(
-    keys: list[str], file_path: Path = ROOT_DIR / "pyproject.toml", default: Any = None
-) -> Any:
+def load_value_from_toml(keys: list[str], default: str = "") -> Any:
     """
     Load a nested value from a TOML file.
 
@@ -24,10 +37,12 @@ def load_value_from_toml(
         FileNotFoundError: If the file doesn't exist and no default is provided.
         ValueError: If the keys are missing and no default is provided.
     """
-    if not file_path.exists():
-        if default is not None:
+    file_path = find_pyproject_toml()
+
+    if not file_path.is_file(follow_symlinks=False):
+        if default:
             return default
-        raise FileNotFoundError(f"{file_path} not found")
+        raise FileNotFoundError("File pyproject.toml not found")
 
     try:
         with file_path.open("rb") as f:
