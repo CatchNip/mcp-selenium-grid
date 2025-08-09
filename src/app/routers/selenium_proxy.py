@@ -1,7 +1,6 @@
 """Proxy router to securely expose Selenium Hub via FastAPI, supporting both Docker and Kubernetes deployments. All routes require HTTP Basic Auth matching the Selenium Hub configuration."""
 
 import base64
-import logging
 from typing import Annotated
 from urllib.parse import urljoin
 
@@ -12,6 +11,7 @@ from fastapi.security import HTTPBasicCredentials
 
 from app.core.settings import Settings
 from app.dependencies import get_settings, verify_basic_auth
+from app.logger import logger
 from app.services.selenium_hub import SeleniumHub
 
 # Constants
@@ -34,9 +34,7 @@ FORWARDED_HEADERS = {
     "cache-control",
 }
 
-
 router = APIRouter(prefix=SELENIUM_HUB_PREFIX, tags=["Selenium Hub"])
-logger = logging.getLogger(__name__)
 
 
 # --- Utility Functions ---

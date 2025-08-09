@@ -1,13 +1,13 @@
 """Decorators for Kubernetes operations."""
 
 import asyncio
-import logging
 from enum import Enum
 from functools import wraps
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from kubernetes.client.exceptions import ApiException
 
+from ....common.logger import logger
 from .constants import HTTP_NOT_FOUND
 
 # Type variables for generic decorator
@@ -29,29 +29,29 @@ def _handle_exceptions(func_name: str, strategy: ErrorStrategy, e: Exception) ->
         if e.status == HTTP_NOT_FOUND:
             match strategy:
                 case ErrorStrategy.GRACEFUL:
-                    logging.info(f"Resource not found in {func_name}: {e}")
+                    logger.info(f"Resource not found in {func_name}: {e}")
                     return None
                 case ErrorStrategy.RETURN_FALSE:
-                    logging.info(f"Resource not found in {func_name}: {e}")
+                    logger.info(f"Resource not found in {func_name}: {e}")
                     return False
                 case _:  # STRICT
-                    logging.info(f"Resource not found in {func_name}: {e}")
+                    logger.info(f"Resource not found in {func_name}: {e}")
                     raise e
         else:
             match strategy:
                 case ErrorStrategy.RETURN_FALSE:
-                    logging.error(f"Kubernetes API error in {func_name}: {e}")
+                    logger.error(f"Kubernetes API error in {func_name}: {e}")
                     return False
                 case _:  # STRICT or GRACEFUL
-                    logging.error(f"Kubernetes API error in {func_name}: {e}")
+                    logger.error(f"Kubernetes API error in {func_name}: {e}")
                     raise e
     else:
         match strategy:
             case ErrorStrategy.RETURN_FALSE:
-                logging.exception(f"Error in {func_name}: {e}")
+                logger.exception(f"Error in {func_name}: {e}")
                 return False
             case _:  # STRICT or GRACEFUL
-                logging.exception(f"Unexpected error in {func_name}: {e}")
+                logger.exception(f"Unexpected error in {func_name}: {e}")
                 raise e
 
 

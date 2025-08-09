@@ -1,4 +1,3 @@
-import logging
 import os
 
 from kubernetes.client import CoreV1Api, V1ObjectMeta
@@ -6,6 +5,7 @@ from kubernetes.config.config_exception import ConfigException
 from kubernetes.config.incluster_config import load_incluster_config
 from kubernetes.config.kube_config import load_kube_config
 
+from ...common.logger import logger
 from ...models.kubernetes_settings import KubernetesSettings
 
 
@@ -21,24 +21,24 @@ class KubernetesConfigManager:
     def _load_config(self) -> None:
         try:
             try:
-                logging.info("Trying in-cluster config...")
+                logger.info("Trying in-cluster config...")
                 load_incluster_config()
-                logging.info("Loaded in-cluster config.")
+                logger.info("Loaded in-cluster config.")
             except ConfigException:
                 kubeconfig_path = self.k8s_settings.KUBECONFIG
-                logging.info(f"In-cluster config failed, trying kubeconfig: '{kubeconfig_path}'")
+                logger.info(f"In-cluster config failed, trying kubeconfig: '{kubeconfig_path}'")
                 if kubeconfig_path:
-                    logging.info(f"KUBECONFIG path: {kubeconfig_path}")
-                    logging.info(f"KUBECONFIG exists: {os.path.exists(kubeconfig_path)}")
+                    logger.info(f"KUBECONFIG path: {kubeconfig_path}")
+                    logger.info(f"KUBECONFIG exists: {os.path.exists(kubeconfig_path)}")
                 else:
-                    logging.info("KUBECONFIG is empty, will use default kubeconfig resolution.")
+                    logger.info("KUBECONFIG is empty, will use default kubeconfig resolution.")
                 load_kube_config(
                     config_file=kubeconfig_path,
                     context=self.k8s_settings.CONTEXT,
                 )
-                logging.info(f"Loaded kubeconfig from {kubeconfig_path}")
+                logger.info(f"Loaded kubeconfig from {kubeconfig_path}")
         except Exception as e:
-            logging.exception(f"Failed to load Kubernetes configuration: {e}")
+            logger.exception(f"Failed to load Kubernetes configuration: {e}")
             raise
 
     def _detect_kind_cluster(self) -> None:
@@ -53,7 +53,7 @@ class KubernetesConfigManager:
                     self._is_kind = True
                     break
             if self._is_kind:
-                logging.info("KinD cluster detected via node name suffix '-control-plane'.")
+                logger.info("KinD cluster detected via node name suffix '-control-plane'.")
         except Exception:
             self._is_kind = False
 

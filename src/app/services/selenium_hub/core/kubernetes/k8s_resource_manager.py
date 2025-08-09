@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import time
 from typing import Callable
 
@@ -12,6 +11,7 @@ from kubernetes.client.models import (
     V1Service,
 )
 
+from ...common.logger import logger
 from ...models.kubernetes_settings import KubernetesSettings
 from .common.constants import (
     DEFAULT_POLL_INTERVAL,
@@ -69,7 +69,7 @@ def is_service_ready(
 
         return False
     except Exception as e:
-        logging.debug(f"Error checking endpoints for service {name}: {e}")
+        logger.debug(f"Error checking endpoints for service {name}: {e}")
         return False
 
 
@@ -148,20 +148,20 @@ class KubernetesResourceManager:
 
     def _wait_for_deletion(self, resource_type: ResourceType, name: str) -> None:
         """Wait for resource deletion to complete."""
-        logging.info(f"Waiting for {resource_type.value} {name} to be deleted...")
+        logger.info(f"Waiting for {resource_type.value} {name} to be deleted...")
         for _ in range(self.max_retries):
             try:
                 self.read_resource(resource_type, name)
                 time.sleep(self.retry_delay)
             except ApiException as e:
                 if e.status == HTTP_NOT_FOUND:
-                    logging.info(f"{resource_type.value} {name} deleted successfully.")
+                    logger.info(f"{resource_type.value} {name} deleted successfully.")
                     return
                 raise
             except Exception as e:
-                logging.exception(f"Error waiting for {resource_type.value} {name} deletion: {e}")
+                logger.exception(f"Error waiting for {resource_type.value} {name} deletion: {e}")
                 raise
-        logging.warning(f"Timeout waiting for {resource_type.value} {name} to be deleted.")
+        logger.warning(f"Timeout waiting for {resource_type.value} {name} to be deleted.")
 
     async def wait_for_resource_ready(
         self,
@@ -174,17 +174,17 @@ class KubernetesResourceManager:
         if config is None:
             config = WaitConfig()
 
-        logging.info(f"Waiting for {resource_type.value} {name} to be ready...")
+        logger.info(f"Waiting for {resource_type.value} {name} to be ready...")
 
         try:
             async with asyncio.timeout(config.timeout_seconds):
                 while True:
                     if await self._check_resource_ready(resource_type, name, check_ready_func):
-                        logging.info(f"{resource_type.value} {name} is ready.")
+                        logger.info(f"{resource_type.value} {name} is ready.")
                         return
                     await asyncio.sleep(config.poll_interval or DEFAULT_POLL_INTERVAL)
         except asyncio.TimeoutError:
-            logging.error(f"Timeout waiting for {resource_type.value} {name} to be ready.")
+            logger.error(f"Timeout waiting for {resource_type.value} {name} to be ready.")
             raise
 
     async def _check_resource_ready(
@@ -202,12 +202,12 @@ class KubernetesResourceManager:
                 return self._is_resource_ready_by_type(resource_type, resource, name)
         except ApiException as e:
             if e.status == HTTP_NOT_FOUND:
-                logging.info(f"{resource_type.value} {name} not found yet, waiting...")
+                logger.info(f"{resource_type.value} {name} not found yet, waiting...")
                 return False
-            logging.error(f"Error checking {resource_type.value} {name} readiness: {e}")
+            logger.error(f"Error checking {resource_type.value} {name} readiness: {e}")
             return False
         except Exception as e:
-            logging.exception(
+            logger.exception(
                 f"Unexpected error during polling for {resource_type.value} {name}: {e}"
             )
             return False
@@ -226,11 +226,11 @@ class KubernetesResourceManager:
             case ResourceType.NAMESPACE:
                 return is_namespace_ready(resource, name)
             case _:
-                logging.warning(f"Unknown resource type {resource_type.value} for {name}")
+                logger.warning(f"Unknown resource type {resource_type.value} for {name}")
                 return False
 
     async def sleep(self, attempt: int) -> None:
         """Sleep with exponential backoff."""
         delay = self.retry_delay * (2**attempt)
-        logging.info(f"Retrying in {delay} seconds...", stacklevel=2)
+        logger.info(f"Retrying in {delay} seconds...", stacklevel=2)
         await asyncio.sleep(delay)

@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.settings import Settings
 from app.dependencies import get_settings, verify_token
+from app.logger import logger
 from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.models.browser import BrowserConfig, BrowserInstance
 
@@ -66,9 +67,7 @@ async def create_browsers(
                 app_state.browsers_instances[browser.id] = browser
     except Exception as e:
         # Log the error and current browser configs for diagnostics
-        import logging  # noqa: PLC0415
-
-        logging.error(
+        logger.error(
             f"Exception in create_browsers: {e}. BROWSER_CONFIGS: {settings.selenium_grid.BROWSER_CONFIGS}"
         )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

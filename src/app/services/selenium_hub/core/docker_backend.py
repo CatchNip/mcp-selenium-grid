@@ -1,9 +1,9 @@
-import logging
 from typing import override
 
 import docker
 from docker.errors import APIError, NotFound
 
+from ..common.logger import logger
 from ..models.browser import BrowserConfig, BrowserConfigs, BrowserType
 from ..models.general_settings import SeleniumHubGeneralSettings
 from .hub_backend import HubBackend
@@ -23,30 +23,30 @@ class DockerHubBackend(HubBackend):
     def _remove_container(self, container_name: str) -> None:
         """Helper method to remove a container by name."""
         try:
-            logging.info(f"Attempting to remove container {container_name}.")
+            logger.info(f"Attempting to remove container {container_name}.")
             container = self.client.containers.get(container_name)
             container.remove(force=True)
-            logging.info(f"Removed container {container_name}.")
+            logger.info(f"Removed container {container_name}.")
         except NotFound:
-            logging.info(f"Container {container_name} not found for removal.")
+            logger.info(f"Container {container_name} not found for removal.")
         except APIError as e:
-            logging.error(f"Docker API error removing container {container_name}: {e}")
+            logger.error(f"Docker API error removing container {container_name}: {e}")
         except Exception as e:
-            logging.exception(f"Unexpected error removing container {container_name}: {e}")
+            logger.exception(f"Unexpected error removing container {container_name}: {e}")
 
     def _remove_network(self, network_name: str) -> None:
         """Helper method to remove a network by name."""
         try:
-            logging.info(f"Attempting to remove network {network_name}.")
+            logger.info(f"Attempting to remove network {network_name}.")
             net = self.client.networks.get(network_name)
             net.remove()
-            logging.info(f"Removed network {network_name}.")
+            logger.info(f"Removed network {network_name}.")
         except NotFound:
-            logging.info(f"Network {network_name} not found for removal.")
+            logger.info(f"Network {network_name} not found for removal.")
         except APIError as e:
-            logging.error(f"Docker API error removing network {network_name}: {e}")
+            logger.error(f"Docker API error removing network {network_name}: {e}")
         except Exception as e:
-            logging.exception(f"Unexpected error removing network {network_name}: {e}")
+            logger.exception(f"Unexpected error removing network {network_name}: {e}")
 
     @override
     def cleanup_hub(self) -> None:
@@ -63,9 +63,9 @@ class DockerHubBackend(HubBackend):
             for container in containers:
                 self._remove_container(container.name)
         except APIError as e:
-            logging.error(f"Docker API error listing browser containers: {e}")
+            logger.error(f"Docker API error listing browser containers: {e}")
         except Exception as e:
-            logging.exception(f"Unexpected error cleaning up browser containers: {e}")
+            logger.exception(f"Unexpected error cleaning up browser containers: {e}")
 
     @override
     def cleanup(self) -> None:
@@ -78,22 +78,22 @@ class DockerHubBackend(HubBackend):
         # Ensure network exists
         try:
             self.client.networks.get(self.settings.docker.DOCKER_NETWORK_NAME)
-            logging.info(
+            logger.info(
                 f"Docker network '{self.settings.docker.DOCKER_NETWORK_NAME}' already exists."
             )
         except NotFound:
-            logging.info(
+            logger.info(
                 f"Docker network '{self.settings.docker.DOCKER_NETWORK_NAME}' not found, creating."
             )
             self.client.networks.create(self.settings.docker.DOCKER_NETWORK_NAME, driver="bridge")
-            logging.info(f"Docker network '{self.settings.docker.DOCKER_NETWORK_NAME}' created.")
+            logger.info(f"Docker network '{self.settings.docker.DOCKER_NETWORK_NAME}' created.")
         except APIError as e:
-            logging.error(
+            logger.error(
                 f"Docker API error ensuring network '{self.settings.docker.DOCKER_NETWORK_NAME}': {e}"
             )
             return False
         except Exception as e:
-            logging.exception(
+            logger.exception(
                 f"Unexpected error ensuring network '{self.settings.docker.DOCKER_NETWORK_NAME}': {e}"
             )
             return False
@@ -102,15 +102,15 @@ class DockerHubBackend(HubBackend):
         try:
             hub = self.client.containers.get(self.settings.HUB_NAME)
             if hub.status != "running":
-                logging.info(
+                logger.info(
                     f"{self.settings.HUB_NAME} container found but not running, restarting."
                 )
                 hub.restart()
-                logging.info(f"{self.settings.HUB_NAME} container restarted.")
+                logger.info(f"{self.settings.HUB_NAME} container restarted.")
             else:
-                logging.info(f"{self.settings.HUB_NAME} container is already running.")
+                logger.info(f"{self.settings.HUB_NAME} container is already running.")
         except NotFound:
-            logging.info(f"{self.settings.HUB_NAME} container not found, creating.")
+            logger.info(f"{self.settings.HUB_NAME} container not found, creating.")
             self.client.containers.run(
                 self.settings.selenium_grid.HUB_IMAGE,
                 name=self.settings.HUB_NAME,
@@ -137,12 +137,12 @@ class DockerHubBackend(HubBackend):
                 cpu_quota=int(0.5 * 100000),  # Convert to microseconds
                 cpu_period=100000,  # 100ms period
             )
-            logging.info(f"{self.settings.HUB_NAME} container created and started.")
+            logger.info(f"{self.settings.HUB_NAME} container created and started.")
         except APIError as e:
-            logging.error(f"Docker API error ensuring {self.settings.HUB_NAME} container: {e}")
+            logger.error(f"Docker API error ensuring {self.settings.HUB_NAME} container: {e}")
             return False
         except Exception as e:
-            logging.exception(f"Unexpected error ensuring {self.settings.HUB_NAME} container: {e}")
+            logger.exception(f"Unexpected error ensuring {self.settings.HUB_NAME} container: {e}")
             return False
 
         return True
@@ -161,21 +161,21 @@ class DockerHubBackend(HubBackend):
             # Ensure image exists, pull if necessary
             try:
                 self.client.images.get(config.image)
-                logging.info(f"Docker image {config.image} already exists.")
+                logger.info(f"Docker image {config.image} already exists.")
             except NotFound:
-                logging.info(f"Docker image {config.image} not found, pulling.")
+                logger.info(f"Docker image {config.image} not found, pulling.")
                 self.client.images.pull(config.image)
-                logging.info(f"Docker image {config.image} pulled.")
+                logger.info(f"Docker image {config.image} pulled.")
             except APIError as e:
-                logging.error(f"Docker API error ensuring image {config.image}: {e}")
+                logger.error(f"Docker API error ensuring image {config.image}: {e}")
                 continue
             except Exception as e:
-                logging.exception(f"Unexpected error ensuring image {config.image}: {e}")
+                logger.exception(f"Unexpected error ensuring image {config.image}: {e}")
                 continue
 
             # Create and run container
             try:
-                logging.info(f"Creating container for browser type {browser_type}.")
+                logger.info(f"Creating container for browser type {browser_type}.")
                 container = self.client.containers.run(
                     config.image,
                     detach=True,
@@ -201,15 +201,15 @@ class DockerHubBackend(HubBackend):
                 )
                 cid = getattr(container, "id", None)
                 if not cid:
-                    logging.error("Failed to start browser container or retrieve container ID.")
+                    logger.error("Failed to start browser container or retrieve container ID.")
                     continue
                 browser_ids.append(cid[:12])
-                logging.info(f"Created container with ID: {cid[:12]}")
+                logger.info(f"Created container with ID: {cid[:12]}")
             except APIError as e:
-                logging.error(f"Docker API error creating container for {browser_type}: {e}")
+                logger.error(f"Docker API error creating container for {browser_type}: {e}")
                 continue
             except Exception as e:
-                logging.exception(f"Unexpected error creating container for {browser_type}: {e}")
+                logger.exception(f"Unexpected error creating container for {browser_type}: {e}")
                 continue
 
         return browser_ids

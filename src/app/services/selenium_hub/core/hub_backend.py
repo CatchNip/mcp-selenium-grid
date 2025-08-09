@@ -1,11 +1,11 @@
 import asyncio
-import logging
 from abc import ABC, abstractmethod
 from typing import Any
 from urllib.parse import urljoin
 
 import httpx
 
+from ..common.logger import logger
 from ..models.browser import BrowserConfigs, BrowserType
 
 
@@ -65,26 +65,26 @@ class HubBackend(ABC):
         Returns True if the hub responds with 200 OK, False otherwise.
         """
         url = urljoin(self.URL, "status")
-        logging.info(f"{self.__class__.__name__}: Checking health for {url}")
+        logger.info(f"{self.__class__.__name__}: Checking health for {url}")
         auth = httpx.BasicAuth(username, password)
         try:
             # Use a longer timeout for health checks to allow for startup time
             async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), auth=auth) as client:
                 response = await client.get(url)
                 if response.status_code == httpx.codes.OK:
-                    logging.info("Health check sucess.")
+                    logger.info("Health check SUCCEED!")
                     return True
                 else:
                     try:
                         response_body = response.text
-                        logging.warning(
+                        logger.warning(
                             f"Health check failed with status code: {response.status_code}, response body: {response_body}"
                         )
                     except Exception:
-                        logging.warning(
+                        logger.warning(
                             f"Health check failed with status code: {response.status_code}, could not read response body"
                         )
                     return False
         except httpx.RequestError as e:
-            logging.warning(f"Health check request failed: {e}")
+            logger.warning(f"Health check request failed: {e or 'No error message.'}")
             return False

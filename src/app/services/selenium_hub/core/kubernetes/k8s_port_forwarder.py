@@ -6,6 +6,7 @@ from tempfile import gettempdir
 from threading import Thread
 from typing import Awaitable, Callable
 
+from ...common.logger import logger
 from ...common.pidfile import PidFile, is_process_running_with_cmdline, terminate_pid
 
 
@@ -51,9 +52,9 @@ class PortForwardManager:
         self.pidfile = PidFile(pid_dir / f"{service_name}-{local_port}.pid")
 
     @staticmethod
-    def _start_logging_thread(process: Popen[str]) -> None:
+    def _start_logger_thread(process: Popen[str]) -> None:
         def log_message(level: int, line: str) -> None:
-            logging.log(level, f"kubectl port-forward: {line.strip()}")
+            logger.log(level, f"kubectl port-forward: {line.strip()}")
 
         # Drain stdout in a thread to avoid blocking
         def log_output() -> None:
@@ -84,7 +85,7 @@ class PortForwardManager:
 
     def _kubectl_port_foward(self) -> Popen[str]:
         cmd = self._build_cmd_args()
-        logging.info(f"Executing: {' '.join(cmd)}")
+        logger.info(f"Executing: {' '.join(cmd)}")
 
         # Start subprocess with live stdout capturing
         process = Popen(  # noqa: S603
@@ -96,7 +97,7 @@ class PortForwardManager:
             shell=False,
         )
 
-        self._start_logging_thread(process)
+        self._start_logger_thread(process)
 
         return process
 
@@ -110,7 +111,7 @@ class PortForwardManager:
 
         is_running = is_process_running_with_cmdline(pid, self._build_cmd_args())
         if not is_running:
-            logging.warning(
+            logger.warning(
                 f"PID {pid} exists but process does not match expected command line. "
                 "It may be stale or from another context."
             )
@@ -121,7 +122,7 @@ class PortForwardManager:
 
     def _start_port_forward(self) -> Popen[str] | None:
         if self._is_existing_port_forward_alive():
-            logging.info(
+            logger.info(
                 f"Port-forward for {self.service_name} on port {self.local_port} already running."
             )
             return None
@@ -130,12 +131,12 @@ class PortForwardManager:
             process = self._kubectl_port_foward()
             # Write PID
             self.pidfile.write(process.pid)
-            logging.info(f"Started kubectl port-forward process (PID: {process.pid})")
+            logger.info(f"Started kubectl port-forward process (PID: {process.pid})")
 
         except FileNotFoundError:
-            logging.error("kubectl not found! Please install and add to PATH.")
+            logger.error("kubectl not found! Please install and add to PATH.")
         except Exception as e:
-            logging.error(f"Error starting kubectl port-forward: {e}")
+            logger.error(f"Error starting kubectl port-forward: {e}")
         else:
             return process
         return None
@@ -143,16 +144,16 @@ class PortForwardManager:
     async def start(self) -> bool:
         if self._is_existing_port_forward_alive():
             if await self.check_health():
-                logging.info("Port-forward already running and healthy.")
+                logger.info("Port-forward already running and healthy.")
                 return True
             else:
-                logging.warning(
+                logger.warning(
                     "Existing port-forward is running but health check failed, cleaning up."
                 )
                 self.stop()
 
         for attempt in range(1, self.max_retries + 1):
-            logging.info(f"Attempt {attempt} to start port-forward...")
+            logger.info(f"Attempt {attempt} to start port-forward...")
 
             self.process = self._start_port_forward()
             if not self.process:
@@ -163,13 +164,13 @@ class PortForwardManager:
             try:
                 is_alive = self.process.poll() is None
                 exit_code = self.process.returncode
-                logging.debug(f"Process returned: {is_alive}, exit_code: {exit_code}")
+                logger.debug(f"Process returned: {is_alive}, exit_code: {exit_code}")
             except Exception as exc:
-                logging.error(f"Error checking is_alive(): {exc}")
+                logger.error(f"Error checking is_alive(): {exc}")
                 is_alive = False
                 exit_code = None
             if not is_alive:
-                logging.error(
+                logger.error(
                     "kubectl port-forward exited immediately. exit_code: %r (type %s)",
                     exit_code,
                     type(exit_code).__name__ if exit_code is not None else "NoneType",
@@ -179,21 +180,21 @@ class PortForwardManager:
                 await asyncio.sleep(2)
                 continue
 
-            logging.info("Process still alive, checking health.")
+            logger.info("Process still alive, checking health.")
             if await self.check_health():
-                logging.info("Port-forward started and health check passed.")
+                logger.info("Port-forward started and health check passed.")
                 return True
 
-            logging.warning("Health check failed, stopping port-forward and retrying.")
+            logger.warning("Health check failed, stopping port-forward and retrying.")
             self.stop()
             await asyncio.sleep(2)
 
-        logging.error("Failed to start port-forward after retries.")
+        logger.error("Failed to start port-forward after retries.")
         return False
 
     def stop(self) -> None:
         if self.process:
-            logging.info("Terminating port-forward process...")
+            logger.info("Terminating port-forward process...")
             self.process.terminate()
             try:
                 self.process.wait(timeout=5)
@@ -205,4 +206,4 @@ class PortForwardManager:
         if pid is not None:
             terminate_pid(pid)
         self.pidfile.remove()
-        logging.info("Port-forward stopped.")
+        logger.info("Port-forward stopped.")

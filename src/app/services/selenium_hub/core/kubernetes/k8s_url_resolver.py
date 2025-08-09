@@ -1,9 +1,9 @@
-import logging
 import time
 from os import environ
 
 from kubernetes.client import CoreV1Api
 
+from ...common.logger import logger
 from ...models.general_settings import SeleniumHubGeneralSettings
 from .common.decorators import ErrorStrategy, handle_kubernetes_exceptions
 
@@ -27,14 +27,14 @@ class KubernetesUrlResolver:
         if self._is_kind:
             # For KinD environments, use port-forwarded URL
             FALLBACK_URL = f"http://localhost:{self.settings.kubernetes.PORT_FORWARD_LOCAL_PORT}"
-            logging.info(f"Using port-forwarded URL for KinD: {FALLBACK_URL}")
+            logger.info(f"Using port-forwarded URL for KinD: {FALLBACK_URL}")
             return FALLBACK_URL
 
         return self._get_nodeport_url(FALLBACK_URL)
 
     def _get_in_cluster_url(self) -> str:
         url = f"http://{self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME}.{self.settings.kubernetes.NAMESPACE}.svc.cluster.local:{self.settings.selenium_grid.SELENIUM_HUB_PORT}"
-        logging.info(f"Using in-cluster DNS for Selenium Hub URL: {url}")
+        logger.info(f"Using in-cluster DNS for Selenium Hub URL: {url}")
         return url
 
     def _get_nodeport_url(self, fallback_url: str) -> str:
@@ -46,11 +46,11 @@ class KubernetesUrlResolver:
                 if url:
                     return url
                 if attempt < max_retries - 1:
-                    logging.info(f"NodePort not yet assigned, retrying in {retry_delay} seconds...")
+                    logger.info(f"NodePort not yet assigned, retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                     retry_delay *= 2
             except Exception as e:
-                logging.error(
+                logger.error(
                     f"Error getting NodePort URL (attempt {attempt + 1}/{max_retries}): {e}. Fallback: {fallback_url}"
                 )
                 if attempt < max_retries - 1:
@@ -62,25 +62,25 @@ class KubernetesUrlResolver:
 
     @handle_kubernetes_exceptions(ErrorStrategy.STRICT)
     def _try_get_nodeport_url(self, attempt: int, max_retries: int) -> str | None:
-        logging.info(
+        logger.info(
             f"Attempt {attempt + 1}/{max_retries}: Getting NodePort for service {self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME} in namespace {self.settings.kubernetes.NAMESPACE}"
         )
         service = self.k8s_core.read_namespaced_service(
             name=self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME,
             namespace=self.settings.kubernetes.NAMESPACE,
         )
-        logging.info(f"Service type: {service.spec.type if service.spec else 'None'}")
-        logging.info(
+        logger.info(f"Service type: {service.spec.type if service.spec else 'None'}")
+        logger.info(
             f"Service ports: {service.spec.ports if service.spec and service.spec.ports else 'None'}"
         )
         if not service.spec or not service.spec.ports:
             return None
         for port in service.spec.ports:
-            logging.info(
+            logger.info(
                 f"Checking port: port={port.port}, target_port={port.target_port}, node_port={port.node_port}"
             )
             if port.node_port:
                 url = f"http://localhost:{port.node_port}"
-                logging.info(f"Resolved NodePort URL: {url}")
+                logger.info(f"Resolved NodePort URL: {url}")
                 return url
         return None

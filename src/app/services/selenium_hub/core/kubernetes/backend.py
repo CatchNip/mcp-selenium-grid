@@ -1,4 +1,3 @@
-import logging
 import uuid
 from os import environ
 from typing import Any, Callable, override
@@ -32,6 +31,7 @@ from kubernetes.client.models import (
     V1ServiceSpec,
 )
 
+from ...common.logger import logger
 from ...models.browser import BrowserConfig, BrowserConfigs, BrowserType
 from ...models.general_settings import SeleniumHubGeneralSettings
 from ..hub_backend import HubBackend
@@ -91,26 +91,26 @@ class KubernetesHubBackend(HubBackend):
                 ResourceType.DEPLOYMENT, self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
             )
         except Exception as e:
-            logging.exception(f"Exception during deletion of deployment: {e}")
+            logger.exception(f"Exception during deletion of deployment: {e}")
 
         try:
             self.resource_manager.delete_resource(
                 ResourceType.SERVICE, self.settings.kubernetes.SELENIUM_GRID_SERVICE_NAME
             )
         except Exception as e:
-            logging.exception(f"Exception during deletion of service: {e}")
+            logger.exception(f"Exception during deletion of service: {e}")
 
     @handle_kubernetes_exceptions(ErrorStrategy.GRACEFUL)
     def cleanup_browsers(self) -> None:
         """Clean up all browser pods."""
-        logging.info(
+        logger.info(
             f"Deleting {self.settings.NODE_LABEL} pods in namespace {self.settings.kubernetes.NAMESPACE}..."
         )
         self.k8s_core.delete_collection_namespaced_pod(
             namespace=self.settings.kubernetes.NAMESPACE,
             label_selector=f"app={self.settings.NODE_LABEL}",
         )
-        logging.info(f"{self.settings.NODE_LABEL} pods delete request sent.")
+        logger.info(f"{self.settings.NODE_LABEL} pods delete request sent.")
 
     @override
     def cleanup(self) -> None:
@@ -133,12 +133,12 @@ class KubernetesHubBackend(HubBackend):
                 or deployment.spec.template.spec is None
                 or not deployment.spec.template.spec.security_context
             ):
-                logging.warning("Deployment missing security context")
+                logger.warning("Deployment missing security context")
                 return False
 
             return True
         except Exception as e:
-            logging.error(f"Error validating deployment: {e}")
+            logger.error(f"Error validating deployment: {e}")
             return False
 
     def _has_valid_spec_structure(self, deployment: V1Deployment) -> bool:
@@ -148,7 +148,7 @@ class KubernetesHubBackend(HubBackend):
             or deployment.spec.template is None
             or deployment.spec.template.spec is None
         ):
-            logging.warning("Invalid deployment spec structure")
+            logger.warning("Invalid deployment spec structure")
             return False
         return True
 
@@ -160,16 +160,16 @@ class KubernetesHubBackend(HubBackend):
             or deployment.spec.template.spec is None
             or deployment.spec.template.spec.containers is None
         ):
-            logging.warning("Invalid deployment spec structure for resource limits")
+            logger.warning("Invalid deployment spec structure for resource limits")
             return False
         for container in deployment.spec.template.spec.containers:
             if not container.resources or not container.resources.limits:
-                logging.warning("Deployment missing resource limits")
+                logger.warning("Deployment missing resource limits")
                 return False
 
             required_limits = ["cpu", "memory"]
             if not all(key in container.resources.limits for key in required_limits):
-                logging.warning("Deployment missing required resource limits")
+                logger.warning("Deployment missing required resource limits")
                 return False
         return True
 
@@ -177,26 +177,26 @@ class KubernetesHubBackend(HubBackend):
         """Validate service configuration."""
         try:
             if not service.spec:
-                logging.warning("Invalid service spec structure")
+                logger.warning("Invalid service spec structure")
                 return False
 
             if service.spec.type not in ["ClusterIP", "NodePort"]:
-                logging.warning("Invalid service type")
+                logger.warning("Invalid service type")
                 return False
 
             if not service.spec.ports:
-                logging.warning("Service missing port configuration")
+                logger.warning("Service missing port configuration")
                 return False
 
             required_attrs = ["port", "target_port"]
             for port in service.spec.ports:
                 if not all(hasattr(port, attr) for attr in required_attrs):
-                    logging.warning("Service port missing required attributes")
+                    logger.warning("Service port missing required attributes")
                     return False
 
             return True
         except Exception as e:
-            logging.error(f"Error validating service: {e}")
+            logger.error(f"Error validating service: {e}")
             return False
 
     @handle_kubernetes_exceptions(ErrorStrategy.STRICT)
@@ -210,10 +210,10 @@ class KubernetesHubBackend(HubBackend):
         """Generic method to ensure a resource exists."""
         try:
             self.resource_manager.read_resource(resource_type, name)
-            logging.info(f"{name} {resource_type.value} already exists.")
+            logger.info(f"{name} {resource_type.value} already exists.")
         except ApiException as e:
             if e.status == HTTP_NOT_FOUND:
-                logging.info(f"{name} {resource_type.value} not found, creating...")
+                logger.info(f"{name} {resource_type.value} not found, creating...")
                 resource = create_func()
 
                 if validate_func and not validate_func(resource):
@@ -230,7 +230,7 @@ class KubernetesHubBackend(HubBackend):
                 elif resource_type == ResourceType.NAMESPACE:
                     self.k8s_core.create_namespace(body=resource)
 
-                logging.info(f"{name} {resource_type.value} created.")
+                logger.info(f"{name} {resource_type.value} created.")
             else:
                 raise
 
@@ -299,11 +299,11 @@ class KubernetesHubBackend(HubBackend):
 
                 return True
             except Exception as e:
-                logging.exception(f"Attempt {i + 1} to ensure K8s hub failed: {e}")
+                logger.exception(f"Attempt {i + 1} to ensure K8s hub failed: {e}")
                 if i < self.settings.kubernetes.MAX_RETRIES - 1:
                     await self.resource_manager.sleep(i)
                 else:
-                    logging.exception("Max retries reached for ensuring K8s hub.")
+                    logger.exception("Max retries reached for ensuring K8s hub.")
                     return False
 
         return False
@@ -368,15 +368,15 @@ class KubernetesHubBackend(HubBackend):
                     browser_ids.append(pod_name)
                     break
                 except Exception as e:
-                    logging.exception(f"Unexpected error creating browser pod: {e}")
+                    logger.exception(f"Unexpected error creating browser pod: {e}")
                     if i < self.settings.kubernetes.MAX_RETRIES - 1:
                         await self.resource_manager.sleep(i)
                     else:
-                        logging.exception(
+                        logger.exception(
                             "Max retries reached for creating browser pod due to unexpected error."
                         )
             else:
-                logging.error("Failed to create browser pod after all retries.")
+                logger.error("Failed to create browser pod after all retries.")
 
         return browser_ids
 
@@ -384,7 +384,7 @@ class KubernetesHubBackend(HubBackend):
     async def _create_browser_pod_with_retry(self, pod_name: str, pod: V1Pod, attempt: int) -> None:
         """Create a browser pod with retry logic."""
         self.k8s_core.create_namespaced_pod(namespace=self.settings.kubernetes.NAMESPACE, body=pod)
-        logging.info(f"Pod {pod_name} created.")
+        logger.info(f"Pod {pod_name} created.")
 
     def _create_browser_pod(
         self, pod_name: str, browser_type: BrowserType, config: BrowserConfig
@@ -611,4 +611,4 @@ class KubernetesHubBackend(HubBackend):
         if self.port_forward_manager:
             self.port_forward_manager.stop()
             self.port_forward_manager = None
-            logging.info("Stopped kubectl service port-forward.")
+            logger.info("Stopped kubectl service port-forward.")
