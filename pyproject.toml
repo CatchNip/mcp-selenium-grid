@@ -13,7 +13,7 @@
 
 [project]
 name = "mcp-selenium-grid"
-version = "0.1.0.dev3"
+version = "0.1.0.dev5"
 description = "MCP Server for managing Selenium Grid"
 readme = "README.md"
 license = { file = "LICENSE" }

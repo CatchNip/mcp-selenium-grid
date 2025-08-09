@@ -583,7 +583,7 @@ wheels = [
 
 [[package]]
 name = "mcp-selenium-grid"
-version = "0.1.0.dev3"
+version = "0.1.0.dev5"
 source = { editable = "." }
 dependencies = [
     { name = "docker" },
