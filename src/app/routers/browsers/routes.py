@@ -5,9 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 
+from app.common.logger import logger
 from app.core.settings import Settings
 from app.dependencies import get_settings, verify_token
-from app.logger import logger
 from app.services.selenium_hub import SeleniumHub
 from app.services.selenium_hub.models.browser import BrowserConfig, BrowserInstance
 

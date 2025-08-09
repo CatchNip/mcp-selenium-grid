@@ -9,9 +9,9 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBasicCredentials
 
+from app.common.logger import logger
 from app.core.settings import Settings
 from app.dependencies import get_settings, verify_basic_auth
-from app.logger import logger
 from app.services.selenium_hub import SeleniumHub
 
 # Constants

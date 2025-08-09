@@ -30,7 +30,8 @@ The MCP Selenium Grid provides a MCP Server for creating and managing browser in
 
 ### 📖 Usage
 
-The MCP Selenium Grid provides a Web API for creating and managing browser instances. The server runs on `localhost:8000` and exposes MCP endpoints at `/mcp`.
+The MCP Selenium Grid provides a Web API for creating and managing browser instances. The server runs on `localhost:8000` and exposes MCP endpoints at `/mcp` (Http Transport) and `/sse` (Server Sent Events).
+> Note: All requests to the server root `http://localhost:8000` will be redirected to either `/mcp` or `/sse` endpoints, depending on the request.
 
 ### MCP Client Configuration
 

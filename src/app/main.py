@@ -3,30 +3,34 @@
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
+from urllib.parse import urljoin
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi_mcp import FastApiMCP
+from fastapi_mcp import AuthConfig, FastApiMCP
 from prometheus_client import generate_latest
 from prometheus_fastapi_instrumentator import Instrumentator
-from starlette.responses import Response
 
+from app.common.fastapi_mcp import handle_fastapi_request
+from app.common.logger import logger
 from app.common.toml import load_value_from_toml
 from app.dependencies import get_settings, verify_token
-from app.logger import logger
 from app.models import HealthCheckResponse, HealthStatus, HubStatusResponse
 from app.routers.browsers import router as browsers_router
 from app.routers.selenium_proxy import router as selenium_proxy_router
 from app.services.selenium_hub import SeleniumHub
 
+DESCRIPTION = load_value_from_toml(["project", "description"])
+SETTINGS = get_settings()
+MCP_HTTP_PATH = "/mcp"
+MCP_SSE_PATH = "/sse"
+
 
 def create_application() -> FastAPI:
     """Create FastAPI application for MCP."""
     # Initialize settings once at the start
-    settings = get_settings()
-    DESCRIPTION = load_value_from_toml(["project", "description"])
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
@@ -35,7 +39,7 @@ def create_application() -> FastAPI:
         app.state.browsers_instances_lock = asyncio.Lock()
 
         # Initialize Selenium Hub singleton
-        hub = SeleniumHub(settings)  # This will create or return the singleton instance
+        hub = SeleniumHub(SETTINGS)  # This will create or return the singleton instance
 
         # Ensure hub is running and healthy before starting the application
         try:
@@ -59,8 +63,8 @@ def create_application() -> FastAPI:
         hub.cleanup()
 
     app = FastAPI(
-        title=settings.PROJECT_NAME,
-        version=settings.VERSION,
+        title=SETTINGS.PROJECT_NAME,
+        version=SETTINGS.VERSION,
         description=DESCRIPTION,
         lifespan=lifespan,
     )
@@ -68,10 +72,10 @@ def create_application() -> FastAPI:
     Instrumentator().instrument(app)
 
     # CORS middleware
-    if settings.BACKEND_CORS_ORIGINS:
+    if SETTINGS.BACKEND_CORS_ORIGINS:
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+            allow_origins=[str(origin) for origin in SETTINGS.BACKEND_CORS_ORIGINS],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -94,7 +98,7 @@ def create_application() -> FastAPI:
         is_healthy = await hub.check_hub_health()
         return HealthCheckResponse(
             status=HealthStatus.HEALTHY if is_healthy else HealthStatus.UNHEALTHY,
-            deployment_mode=settings.DEPLOYMENT_MODE,
+            deployment_mode=SETTINGS.DEPLOYMENT_MODE,
         )
 
     # Stats endpoint
@@ -120,13 +124,13 @@ def create_application() -> FastAPI:
         return HubStatusResponse(
             hub_running=is_running,
             hub_healthy=is_healthy,
-            deployment_mode=settings.DEPLOYMENT_MODE,
-            max_instances=settings.selenium_grid.MAX_BROWSER_INSTANCES,
+            deployment_mode=SETTINGS.DEPLOYMENT_MODE,
+            max_instances=SETTINGS.selenium_grid.MAX_BROWSER_INSTANCES,
             browsers=browsers,
         )
 
     # Include browser management endpoints
-    app.include_router(browsers_router, prefix=settings.API_V1_STR)
+    app.include_router(browsers_router, prefix=SETTINGS.API_V1_STR)
     # Include Selenium Hub proxy endpoints
     app.include_router(selenium_proxy_router)
 
@@ -137,27 +141,57 @@ def create_application() -> FastAPI:
         description=DESCRIPTION,
         describe_full_response_schema=True,
         describe_all_responses=True,
+        auth_config=AuthConfig(
+            dependencies=[Depends(verify_token)],
+        ),
     )
-    MCP_HTTP_PATH = "/mcp"
-    MCP_SSE_PATH = "/sse"
     mcp.mount_http(mount_path=MCP_HTTP_PATH)
     mcp.mount_sse(mount_path=MCP_SSE_PATH)
 
-    @app.api_route("/", methods=["GET", "POST"], include_in_schema=False)
-    async def root_redirect(request: Request) -> Response:
-        accept: str = request.headers.get("accept", "").lower()
-        method: str = request.method.upper()
+    @app.api_route("/", methods=["GET", "POST"])
+    async def root_proxy(
+        request: Request,
+        credentials: HTTPAuthorizationCredentials = Depends(verify_token),
+    ) -> Response:
+        """
+        FastApiMCP does not allow mounting directly on the root path `/`.
+        However, MCP clients (especially when using uvx) expect to connect on `/`.
+        This proxy handles requests on `/` and internally routes them to the proper MCP endpoints.
+        For SSE (Server-Sent Events) and HTTP transports, it redirects or proxies requests accordingly,
+        ensuring compatibility with client expectations without violating FastApiMCP mounting rules.
+        """
 
-        logger.info(f"Received {method=} with Accept: {accept}")
+        accept = request.headers.get("accept", "").lower()
+        method = request.method.upper()
+        session_manager = mcp._http_transport  # noqa: SLF001
 
         if "text/event-stream" in accept:
-            # MCP allows POST or GET here
-            logger.info(f"Redirecting to SSE endpoint /sse (method={method})")
-            return RedirectResponse(url="/sse")
+            if method == "GET":
+                return await handle_fastapi_request(
+                    name="SSE",
+                    request=request,
+                    target_path=MCP_SSE_PATH,
+                    method=method,
+                    session_manager=session_manager,
+                )
+            elif method == "POST":
+                return await handle_fastapi_request(
+                    name="SSE messages",
+                    request=request,
+                    target_path=urljoin(MCP_SSE_PATH, "/messages"),
+                    method=method,
+                    session_manager=session_manager,
+                )
+            else:
+                return JSONResponse({"detail": "Unsupported method"}, status_code=405)
         elif "application/json" in accept:
-            # JSON RPC endpoint (usually POST)
-            logger.info(f"Redirecting to HTTP JSON RPC endpoint /mcp (method={method})")
-            return RedirectResponse(url="/mcp")
+            return await handle_fastapi_request(
+                name="HTTP",
+                request=request,
+                target_path=MCP_HTTP_PATH,
+                method=method,
+                session_manager=session_manager,
+            )
         else:
             logger.warning(f"Unsupported Accept header or method: method={method}, accept={accept}")
             return JSONResponse({"detail": "Unsupported Accept header or method"}, status_code=405)
