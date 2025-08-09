@@ -1,5 +1,4 @@
-project_name: MCP Selenium Server
-version: 0.1.0
+project_name: MCP Selenium Grid
 deployment_mode: docker # one of: docker, kubernetes (DeploymentMode enum values)
 api_v1_str: /api/v1
 api_token: CHANGE_ME

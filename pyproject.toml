@@ -13,8 +13,8 @@
 
 [project]
 name = "mcp-selenium-grid"
-version = "0.1.0.dev2"
-description = "MCP Server for managing Selenium Grid instances"
+version = "0.1.0.dev3"
+description = "MCP Server for managing Selenium Grid"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
@@ -25,7 +25,7 @@ dependencies = [
     "fastapi[standard]>=0.115.14", # Web framework
     "fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.8",
     "fastapi-mcp>=0.3.4", # MCP integration for FastAPI
-    "pydantic[email]>=2.11.7", # Data validation, email support
+    "pydantic>=2.11.7", # Data validation
     "pydantic-settings>=2.10.1", # Settings management (latest is 2.2.1)
     "docker>=7.1.0", # Docker API client
     "kubernetes>=33.1.0", # Kubernetes API client3

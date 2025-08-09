@@ -1,7 +1,8 @@
 """Core settings for MCP Server."""
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 
+from app.common.toml import load_value_from_toml
 from app.services.selenium_hub.models.general_settings import SeleniumHubGeneralSettings
 
 
@@ -9,12 +10,18 @@ class Settings(SeleniumHubGeneralSettings):
     """MCP Server settings."""
 
     # API Settings
-    PROJECT_NAME: str = Field(default="MCP Selenium Server")
-    VERSION: str = Field(default="0.1.0")
-    API_V1_STR: str = Field(default="/api/v1")
+    PROJECT_NAME: str = "MCP Selenium Grid"
+    VERSION: str = ""
+
+    @field_validator("VERSION", mode="before")
+    @classmethod
+    def load_version_from_pyproject(cls, v: str) -> str:
+        return v or load_value_from_toml(["project", "version"])
+
+    API_V1_STR: str = "/api/v1"
 
     # API Token
-    API_TOKEN: SecretStr = Field(default=SecretStr("CHANGE_ME"))
+    API_TOKEN: SecretStr = SecretStr("CHANGE_ME")
 
     # Security Settings
     BACKEND_CORS_ORIGINS: list[str] = Field(
