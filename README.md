@@ -49,7 +49,7 @@ For Docker-based deployment, ensure Docker is running and use the Docker configu
         "--port", "8000"
       ],
       "env": {
-        "API_TOKEN": "SERVER_AUTH_DISABLED",
+        "AUTH_ENABLED": "false",
         "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
         "DEPLOYMENT_MODE": "docker",
         "SELENIUM_GRID__USERNAME": "USER",
@@ -136,7 +136,7 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
         "--port", "8000"
       ],
       "env": {
-        "API_TOKEN": "SERVER_AUTH_DISABLED",
+        "AUTH_ENABLED": "false",
         "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
         "DEPLOYMENT_MODE": "kubernetes",
         "SELENIUM_GRID__USERNAME": "USER",
@@ -166,7 +166,7 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
         "--rm",
         "--init",
         "-p", "8000:80",
-        "-e", "API_TOKEN=SERVER_AUTH_DISABLED",
+        "-e", "AUTH_ENABLED=false",
         "-e", "ALLOWED_ORIGINS=[\"http://127.0.0.1:8000\"]",
         "-e", "DEPLOYMENT_MODE=kubernetes", // required for docker
         "-e", "SELENIUM_GRID__USERNAME=USER",

@@ -25,6 +25,7 @@ class Settings(SeleniumHubGeneralSettings):
     # API Settings
     API_V1_STR: str = "/api/v1"
     API_TOKEN: SecretStr = SecretStr("CHANGE_ME")
+    AUTH_ENABLED: bool = True
 
     # Security Settings
     BACKEND_CORS_ORIGINS: list[str] = Field(

@@ -4,7 +4,7 @@ import pytest
 from app.models import HealthStatus
 from fastapi import status
 from fastapi.testclient import TestClient
-from pytest import FixtureRequest, MonkeyPatch
+from pytest import FixtureRequest
 
 
 @pytest.mark.integration
@@ -35,7 +35,7 @@ def test_health_check_requires_auth(client: TestClient) -> None:
 
 
 @pytest.mark.integration
-def test_disabled_auth(client_disabled_auth: TestClient, monkeypatch: MonkeyPatch) -> None:
+def test_disabled_auth(client_disabled_auth: TestClient) -> None:
     """Test health check endpoint without authentication when API_TOKEN is empty."""
     response = client_disabled_auth.get("/health")
     assert response.status_code == status.HTTP_200_OK

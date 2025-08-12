@@ -290,7 +290,7 @@ def client(request: FixtureRequest) -> Generator[TestClient, None, None]:
 
 
 # Client fixture with API_TOKEN patched to empty string
-@pytest.fixture(scope="function", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
+@pytest.fixture(scope="session", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
 def client_disabled_auth(request: FixtureRequest) -> Generator[TestClient, None, None]:
     from app.main import create_application  # noqa: PLC0415
     from fastapi.testclient import TestClient  # noqa: PLC0415
@@ -302,7 +302,7 @@ def client_disabled_auth(request: FixtureRequest) -> Generator[TestClient, None,
     settings.DEPLOYMENT_MODE = request.param
 
     # Disable Auth
-    settings.API_TOKEN = SecretStr("SERVER_AUTH_DISABLED")
+    settings.AUTH_ENABLED = False
 
     app.dependency_overrides[get_settings] = lambda: settings
 

@@ -48,13 +48,12 @@ async def verify_token(
     """
 
     # If API_TOKEN is empty, skip auth (allow access)
-    if settings.API_TOKEN.get_secret_value() == "SERVER_AUTH_DISABLED":
+    if not settings.AUTH_ENABLED:
         logger.critical(
             "API_TOKEN is disabled — skipping token verification, access granted as anonymous".upper()
         )
         return {"sub": "anonymous"}
 
-    # Check if header exists (auto_error=False)
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
