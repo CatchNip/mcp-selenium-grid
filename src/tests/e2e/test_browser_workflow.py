@@ -40,6 +40,7 @@ def test_complete_browser_lifecycle(
     assert create_response.status_code == status.HTTP_201_CREATED
     response_data = create_response.json()
     assert "browsers" in response_data
+    assert isinstance(response_data["browsers"], list)
     assert "hub_url" in response_data
     assert response_data["status"] == BrowserResponseStatus.CREATED
 
@@ -56,7 +57,8 @@ def test_complete_browser_lifecycle(
         # Get the value of the 'client' fixture's current parameter (DeploymentMode)
         current_mode = request.node.callspec.params["client"]
         assert stats_data["deployment_mode"] == current_mode.value
-        stats_browsers_ids = [b["id"] for b in stats_data["browsers"]]
+        assert isinstance(stats_data["browsers"], dict)
+        stats_browsers_ids = [key for key in stats_data["browsers"].keys()]
         # Check if all created browsers are in stats (stats might contain more from previous runs)
         for browser_id in created_browsers_ids_list:
             assert browser_id in stats_browsers_ids

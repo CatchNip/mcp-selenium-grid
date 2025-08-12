@@ -385,7 +385,6 @@ async def test_singleton_behavior() -> None:
     # Create initial settings
     settings = Settings(
         PROJECT_NAME="Test Project",
-        VERSION="0.1.0",
         DEPLOYMENT_MODE=DeploymentMode.DOCKER,
         API_V1_STR="/api/v1",
         API_TOKEN=SecretStr("test-token"),

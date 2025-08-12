@@ -3,6 +3,7 @@
 ## 📂 Workflow Overview
 
 This repository uses modular, clearly named workflows for CI, integration tests, packaging, Docker, and releases.
+A top-level **`0_ci-cd.yaml`** orchestrates the process for pushes to `main`, running **Tests** first and triggering the **Release** workflow only if they pass.
 
 1. 🧪 **Tests** — lint, types checks, unit, integration and e2e tests.
    - 🧩 **Unit Tests** — Run unit tests
@@ -12,6 +13,7 @@ This repository uses modular, clearly named workflows for CI, integration tests,
    - 📦 **Build & Publish Python Package** — Build and (optionally) publish the Python package
    - 🐋 **Build & Push Docker Image** — Build and (optionally) push the Docker image
    - 📝 **Create GitHub Release Only** — Create a GitHub Release from already published artifacts
+3. 🔄 **CI/CD Orchestration** (`3_ci-cd.yaml`) — Runs Tests → Release when pushing to `main`.
 
 ## ⚡ Quick Start
 
@@ -99,6 +101,14 @@ Create a GitHub Release from already published artifacts:
 
 ```sh
 act -W .github/workflows/2.3_create-github-release.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
+```
+
+## 3. 🔄 CI/CD Orchestration
+
+Run the combined CI + Release process (push to main simulation):
+
+```sh
+act -W .github/workflows/3_ci-cd.yaml -P ubuntu-latest=catthehacker/ubuntu:act-latest --rm
 ```
 
 ## 💡 Notes

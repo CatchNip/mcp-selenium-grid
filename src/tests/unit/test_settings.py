@@ -14,11 +14,9 @@ SELENIUM_PORT = 4444
 @pytest.mark.unit
 def test_settings_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROJECT_NAME", "Env Project")
-    monkeypatch.setenv("VERSION", "3.0.0")
     monkeypatch.setenv("API_V1_STR", "/env/api")
     settings = Settings()
     assert settings.PROJECT_NAME == "Env Project"
-    assert settings.VERSION == "3.0.0"
     assert settings.API_V1_STR == "/env/api"
 
 
@@ -47,7 +45,6 @@ def test_deployment_mode_override_by_env(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_settings_loads_from_yaml(tmp_path: Path) -> None:
     yaml_content = textwrap.dedent(f"""
         project_name: YAML Project
-        version: 9.9.9
         selenium_grid:
           hub_image: selenium/hub:latest
           max_browser_instances: {MAX_BROWSER_INSTANCES}
@@ -70,7 +67,6 @@ def test_settings_loads_from_yaml(tmp_path: Path) -> None:
     try:
         settings = Settings()
         assert settings.PROJECT_NAME == "YAML Project"
-        assert settings.VERSION == "9.9.9"
         assert settings.selenium_grid.MAX_BROWSER_INSTANCES == MAX_BROWSER_INSTANCES
         assert settings.kubernetes.NAMESPACE == "yaml-namespace"
         expected_kubeconfig = os.path.expanduser("~/fake-kubeconfig")

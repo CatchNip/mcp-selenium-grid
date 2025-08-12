@@ -1,6 +1,13 @@
 name: Release Python Package and Docker Image
 
 on:
+  workflow_call:
+    inputs:
+      publish:
+        description: 'Whether to publish the Python package and Docker image (true/false)'
+        required: false
+        default: 'false'
+        type: string
   workflow_dispatch:
     inputs:
       publish:
@@ -25,18 +32,6 @@ jobs:
         run: echo "$GITHUB_CONTEXT"
       - id: lower
         run: echo "github_repository_lowercase=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
-
-  build-python-package:
-    needs: params
-    uses: ./.github/workflows/2.1_build-python-package.yml
-    permissions:
-      id-token: write
-      contents: read
-    with:
-      publish: ${{ github.event.inputs.publish }}
-      upload-github-release: 'false'
-    secrets: inherit
-
   build-docker-image:
     needs: [params, build-python-package]
     uses: ./.github/workflows/2.2_build-docker-image.yml
@@ -50,7 +45,16 @@ jobs:
       dockerfile: Dockerfile
       push: ${{ github.event.inputs.publish }}
     secrets: inherit
-
+  build-python-package:
+    needs: params
+    uses: ./.github/workflows/2.1_build-python-package.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      publish: ${{ github.event.inputs.publish }}
+      upload-github-release: 'false'
+    secrets: inherit
   create-github-release:
     needs: [params, build-python-package, build-docker-image]
     if: ${{ github.event.inputs.publish == 'true' && needs.build-python-package.result == 'success' && needs.build-docker-image.result == 'success' }}

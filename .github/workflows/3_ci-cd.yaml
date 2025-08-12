@@ -1,0 +1,24 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  tests:
+    name: Run full test suite
+    uses: ./.github/workflows/1_tests.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Release Python Package and Docker Image
+    needs: tests
+    if: needs.tests.result == 'success'
+    uses: ./.github/workflows/2_release.yml
+    with:
+      publish: 'true' # change to 'false' if you only want to build without publishing
+    secrets: inherit

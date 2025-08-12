@@ -52,4 +52,5 @@ def test_hub_stats_endpoint(
 
     assert "max_instances" in data
     assert "browsers" in data
-    assert isinstance(data["browsers"], list)
+    assert "webdriver_remote_url" in data
+    assert isinstance(data["browsers"], dict)
