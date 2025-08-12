@@ -13,7 +13,7 @@
 
 [project]
 name = "mcp-selenium-grid"
-version = "0.1.0.dev5"
+version = "0.1.0.dev6"
 description = "MCP Server for managing Selenium Grid"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -58,6 +58,7 @@ test = [
     "pytest-asyncio>=1.0.0", # Parallel test execution
     "pytest-sugar>=1.0.0",
     "coverage>=7.10.2",
+    "pytest-timeout>=2.4.0",
 ]
 
 [build-system]

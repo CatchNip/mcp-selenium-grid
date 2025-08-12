@@ -1,3 +1,4 @@
+package_name: mcp-selenium-grid # pyproject.toml
 project_name: MCP Selenium Grid
 deployment_mode: docker # one of: docker, kubernetes (DeploymentMode enum values)
 api_v1_str: /api/v1

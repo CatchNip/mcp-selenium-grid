@@ -1,12 +1,23 @@
 name: Release Python Package and Docker Image
 
 on:
+  workflow_call:
+    inputs:
+      publish:
+        description: 'Whether to publish the Python package and Docker image'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Whether to publish the Python package and Docker image (true/false)'
+        description: Publish package and Docker image?
         required: false
+        type: choice
         default: 'false'
+        options:
+          - 'true'
+          - 'false'
 
 # This workflow is intended to be run manually for releases.
 # It does not depend on CI passing, but it is recommended to only run after CI passes.
@@ -25,18 +36,6 @@ jobs:
         run: echo "$GITHUB_CONTEXT"
       - id: lower
         run: echo "github_repository_lowercase=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
-
-  build-python-package:
-    needs: params
-    uses: ./.github/workflows/2.1_build-python-package.yml
-    permissions:
-      id-token: write
-      contents: read
-    with:
-      publish: ${{ github.event.inputs.publish }}
-      upload-github-release: 'false'
-    secrets: inherit
-
   build-docker-image:
     needs: [params, build-python-package]
     uses: ./.github/workflows/2.2_build-docker-image.yml
@@ -48,12 +47,21 @@ jobs:
       extra-tag: ghcr.io/${{ needs.params.outputs.github-repository-lowercase }}:latest
       context: .
       dockerfile: Dockerfile
-      push: ${{ github.event.inputs.publish }}
+      push: ${{ inputs.publish == 'true' || inputs.publish == true }}
     secrets: inherit
-
+  build-python-package:
+    needs: params
+    uses: ./.github/workflows/2.1_build-python-package.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      publish: ${{ inputs.publish == 'true' || inputs.publish == true }}
+      upload-github-release: false
+    secrets: inherit
   create-github-release:
     needs: [params, build-python-package, build-docker-image]
-    if: ${{ github.event.inputs.publish == 'true' && needs.build-python-package.result == 'success' && needs.build-docker-image.result == 'success' }}
+    if: ${{ (inputs.publish == 'true' || inputs.publish == true) && needs.build-python-package.result == 'success' && needs.build-docker-image.result == 'success' }}
     uses: ./.github/workflows/2.3_create-github-release.yml
     permissions:
       contents: write

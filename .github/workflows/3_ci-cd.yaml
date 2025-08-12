@@ -1,0 +1,29 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  tests:
+    name: Run full test suite
+    uses: ./.github/workflows/1_tests.yml
+    permissions:
+      contents: read
+      actions: write # reusable workflow uploads artifacts
+
+  release:
+    name: Release Python Package and Docker Image
+    needs: tests
+    if: success()
+    uses: ./.github/workflows/2_release.yml
+    with:
+      publish: true
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      packages: write

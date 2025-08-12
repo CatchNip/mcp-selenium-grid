@@ -15,14 +15,12 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.common.fastapi_mcp import handle_fastapi_request
 from app.common.logger import logger
-from app.common.toml import load_value_from_toml
 from app.dependencies import get_settings, verify_token
 from app.models import HealthCheckResponse, HealthStatus, HubStatusResponse
 from app.routers.browsers import router as browsers_router
 from app.routers.selenium_proxy import router as selenium_proxy_router
 from app.services.selenium_hub import SeleniumHub
 
-DESCRIPTION = load_value_from_toml(["project", "description"])
 SETTINGS = get_settings()
 MCP_HTTP_PATH = "/mcp"
 MCP_SSE_PATH = "/sse"
@@ -65,7 +63,7 @@ def create_application() -> FastAPI:
     app = FastAPI(
         title=SETTINGS.PROJECT_NAME,
         version=SETTINGS.VERSION,
-        description=DESCRIPTION,
+        description=SETTINGS.DESCRIPTION,
         lifespan=lifespan,
     )
 
@@ -119,15 +117,14 @@ def create_application() -> FastAPI:
         # Get app_state.browsers_instances using lock to ensure thread safety
         app_state = request.app.state
         async with app_state.browsers_instances_lock:
-            browsers = [browser.model_dump() for browser in app_state.browsers_instances.values()]
-
-        return HubStatusResponse(
-            hub_running=is_running,
-            hub_healthy=is_healthy,
-            deployment_mode=SETTINGS.DEPLOYMENT_MODE,
-            max_instances=SETTINGS.selenium_grid.MAX_BROWSER_INSTANCES,
-            browsers=browsers,
-        )
+            return HubStatusResponse(
+                hub_running=is_running,
+                hub_healthy=is_healthy,
+                deployment_mode=SETTINGS.DEPLOYMENT_MODE,
+                max_instances=SETTINGS.selenium_grid.MAX_BROWSER_INSTANCES,
+                browsers=app_state.browsers_instances,
+                webdriver_remote_url=hub.WEBDRIVER_REMOTE_URL,
+            )
 
     # Include browser management endpoints
     app.include_router(browsers_router, prefix=SETTINGS.API_V1_STR)
@@ -137,8 +134,8 @@ def create_application() -> FastAPI:
     # --- MCP Integration ---
     mcp = FastApiMCP(
         app,
-        name="MCP Selenium Grid",
-        description=DESCRIPTION,
+        name=SETTINGS.PROJECT_NAME,
+        description=SETTINGS.DESCRIPTION,
         describe_full_response_schema=True,
         describe_all_responses=True,
         auth_config=AuthConfig(
@@ -148,7 +145,7 @@ def create_application() -> FastAPI:
     mcp.mount_http(mount_path=MCP_HTTP_PATH)
     mcp.mount_sse(mount_path=MCP_SSE_PATH)
 
-    @app.api_route("/", methods=["GET", "POST"])
+    @app.api_route("/", methods=["GET", "POST"], include_in_schema=False)
     async def root_proxy(
         request: Request,
         credentials: HTTPAuthorizationCredentials = Depends(verify_token),

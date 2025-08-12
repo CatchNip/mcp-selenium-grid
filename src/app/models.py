@@ -1,11 +1,11 @@
 """Response models for MCP Server."""
 
 from enum import Enum
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from app.services.selenium_hub.models import DeploymentMode
+from app.services.selenium_hub.models.browser import BrowserInstance
 
 
 class HealthStatus(str, Enum):
@@ -38,4 +38,7 @@ class HubStatusResponse(BaseModel):
         examples=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES],
     )
     max_instances: int = Field(description="Maximum allowed browser instances")
-    browsers: list[dict[str, Any]] = Field(description="List of current browser instances")
+    browsers: dict[str, BrowserInstance] = Field(
+        description="Dict of current browser instances with id as dict key"
+    )
+    webdriver_remote_url: str = Field(description="URL to connect to the Grid's Hub or Router")

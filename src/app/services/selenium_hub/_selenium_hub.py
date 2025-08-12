@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from urllib.parse import urljoin
 
 from app.services.metrics import track_browser_metrics, track_hub_metrics  # TODO: refactor and test
 
@@ -96,6 +97,16 @@ class SeleniumHub:
             str: The base URL for the Selenium Hub
         """
         return self._manager.URL
+
+    @property
+    def WEBDRIVER_REMOTE_URL(self) -> str:
+        """
+        Get the URL to connect to the Grid's Hub or Router
+
+        Returns:
+            str: The URL to Remote WebDriver
+        """
+        return urljoin(self.URL, "/wd/hub")
 
     @track_hub_metrics()
     async def check_hub_health(self) -> bool:

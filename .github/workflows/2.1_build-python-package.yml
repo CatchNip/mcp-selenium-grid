@@ -10,13 +10,13 @@ on:
       publish:
         description: 'Whether to publish the package (true/false)'
         required: false
-        default: 'false'
-        type: string
+        default: false
+        type: boolean
       upload-github-release:
         description: 'Whether to upload the built package to a GitHub Release (true/false)'
         required: false
-        default: 'false'
-        type: string
+        default: false
+        type: boolean
     outputs:
       version:
         description: 'Extracted version from pyproject.toml'
@@ -62,7 +62,7 @@ jobs:
         run: uv build
 
       - name: Publish package to PyPI (trusted publishing)
-        if: ${{ inputs.publish == 'true' }}
+        if: ${{ inputs.publish == true }}
         uses: pypa/gh-action-pypi-publish@v1.12.4
         with:
           user: __token__
@@ -70,7 +70,7 @@ jobs:
           verbose: true  # Optional, logs more info
 
       - name: Upload Python package to GitHub Release
-        if: ${{ inputs.upload-github-release == 'true' }}
+        if: ${{ inputs.upload-github-release == true }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.version }}
