@@ -36,6 +36,13 @@ def get_settings_override_missing() -> Settings:
 async def verify_token_override(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict[str, str]:
+    # Check if header exists (auto_error=False)
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated",
+        )
+
     if credentials.credentials != "valid_token":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

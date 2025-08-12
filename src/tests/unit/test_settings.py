@@ -40,6 +40,14 @@ def test_deployment_mode_override_by_env(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.delenv("DEPLOYMENT_MODE", raising=False)
 
 
+@pytest.mark.unit
+def test_api_token_override_by_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("API_TOKEN", "")
+    settings = Settings()
+    assert settings.API_TOKEN.get_secret_value() == ""
+    monkeypatch.delenv("API_TOKEN", raising=False)
+
+
 # --- YAML Loading and Special Behaviors ---
 @pytest.mark.unit
 def test_settings_loads_from_yaml(tmp_path: Path) -> None:

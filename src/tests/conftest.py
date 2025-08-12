@@ -285,7 +285,31 @@ def client(request: FixtureRequest) -> Generator[TestClient, None, None]:
 
     with TestClient(app) as test_client:
         yield test_client
-    app.dependency_overrides = {}
+
+    app.dependency_overrides.clear()
+
+
+# Client fixture with API_TOKEN patched to empty string
+@pytest.fixture(scope="function", params=[DeploymentMode.DOCKER, DeploymentMode.KUBERNETES])
+def client_disabled_auth(request: FixtureRequest) -> Generator[TestClient, None, None]:
+    from app.main import create_application  # noqa: PLC0415
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    app = create_application()
+
+    # Override settings based on deployment mode
+    settings = get_settings()
+    settings.DEPLOYMENT_MODE = request.param
+
+    # Disable Auth
+    settings.API_TOKEN = SecretStr("SERVER_AUTH_DISABLED")
+
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
 
 
 def reset_selenium_hub_singleton() -> None:

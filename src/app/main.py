@@ -21,7 +21,7 @@ from app.routers.browsers import router as browsers_router
 from app.routers.selenium_proxy import router as selenium_proxy_router
 from app.services.selenium_hub import SeleniumHub
 
-SETTINGS = get_settings()
+settings = get_settings()
 MCP_HTTP_PATH = "/mcp"
 MCP_SSE_PATH = "/sse"
 
@@ -37,7 +37,7 @@ def create_application() -> FastAPI:
         app.state.browsers_instances_lock = asyncio.Lock()
 
         # Initialize Selenium Hub singleton
-        hub = SeleniumHub(SETTINGS)  # This will create or return the singleton instance
+        hub = SeleniumHub(settings)  # This will create or return the singleton instance
 
         # Ensure hub is running and healthy before starting the application
         try:
@@ -61,19 +61,19 @@ def create_application() -> FastAPI:
         hub.cleanup()
 
     app = FastAPI(
-        title=SETTINGS.PROJECT_NAME,
-        version=SETTINGS.VERSION,
-        description=SETTINGS.DESCRIPTION,
+        title=settings.PROJECT_NAME,
+        version=settings.VERSION,
+        description=settings.DESCRIPTION,
         lifespan=lifespan,
     )
 
     Instrumentator().instrument(app)
 
     # CORS middleware
-    if SETTINGS.BACKEND_CORS_ORIGINS:
+    if settings.BACKEND_CORS_ORIGINS:
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=[str(origin) for origin in SETTINGS.BACKEND_CORS_ORIGINS],
+            allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -96,7 +96,7 @@ def create_application() -> FastAPI:
         is_healthy = await hub.check_hub_health()
         return HealthCheckResponse(
             status=HealthStatus.HEALTHY if is_healthy else HealthStatus.UNHEALTHY,
-            deployment_mode=SETTINGS.DEPLOYMENT_MODE,
+            deployment_mode=settings.DEPLOYMENT_MODE,
         )
 
     # Stats endpoint
@@ -120,22 +120,22 @@ def create_application() -> FastAPI:
             return HubStatusResponse(
                 hub_running=is_running,
                 hub_healthy=is_healthy,
-                deployment_mode=SETTINGS.DEPLOYMENT_MODE,
-                max_instances=SETTINGS.selenium_grid.MAX_BROWSER_INSTANCES,
+                deployment_mode=settings.DEPLOYMENT_MODE,
+                max_instances=settings.selenium_grid.MAX_BROWSER_INSTANCES,
                 browsers=app_state.browsers_instances,
                 webdriver_remote_url=hub.WEBDRIVER_REMOTE_URL,
             )
 
     # Include browser management endpoints
-    app.include_router(browsers_router, prefix=SETTINGS.API_V1_STR)
+    app.include_router(browsers_router, prefix=settings.API_V1_STR)
     # Include Selenium Hub proxy endpoints
     app.include_router(selenium_proxy_router)
 
     # --- MCP Integration ---
     mcp = FastApiMCP(
         app,
-        name=SETTINGS.PROJECT_NAME,
-        description=SETTINGS.DESCRIPTION,
+        name=settings.PROJECT_NAME,
+        description=settings.DESCRIPTION,
         describe_full_response_schema=True,
         describe_all_responses=True,
         auth_config=AuthConfig(

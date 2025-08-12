@@ -49,7 +49,7 @@ For Docker-based deployment, ensure Docker is running and use the Docker configu
         "--port", "8000"
       ],
       "env": {
-        "API_TOKEN": "CHANGE_ME",
+        "API_TOKEN": "SERVER_AUTH_DISABLED",
         "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
         "DEPLOYMENT_MODE": "docker",
         "SELENIUM_GRID__USERNAME": "USER",
@@ -136,7 +136,7 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
         "--port", "8000"
       ],
       "env": {
-        "API_TOKEN": "CHANGE_ME",
+        "API_TOKEN": "SERVER_AUTH_DISABLED",
         "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
         "DEPLOYMENT_MODE": "kubernetes",
         "SELENIUM_GRID__USERNAME": "USER",
@@ -166,7 +166,7 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
         "--rm",
         "--init",
         "-p", "8000:80",
-        "-e", "API_TOKEN=CHANGE_ME",
+        "-e", "API_TOKEN=SERVER_AUTH_DISABLED",
         "-e", "ALLOWED_ORIGINS=[\"http://127.0.0.1:8000\"]",
         "-e", "DEPLOYMENT_MODE=kubernetes", // required for docker
         "-e", "SELENIUM_GRID__USERNAME=USER",
@@ -188,6 +188,91 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
 ```
 
 > The server will be available at `http://localhost:8000` with interactive API documentation at `http://localhost:8000/docs`.
+
+### Server with auth enabled
+
+#### UVX
+
+Using default args
+
+```bash
+uvx mcp-selenium-grid server run
+```
+
+Custom args
+
+```bash
+API_TOKEN=CHANGE_ME uvx mcp-selenium-grid server run --host 127.0.0.1 --port 8000
+```
+
+#### Docker
+
+Default args
+
+```bash
+docker run -i --rm --init -p 8000:80 ghcr.io/falamarcao/mcp-selenium-grid:latest
+```
+
+Custom args
+
+```bash
+docker run -i --rm --init -p 8000:80 \
+  -e API_TOKEN=CHANGE_ME \
+  -e ALLOWED_ORIGINS='["http://127.0.0.1:8000"]' \
+  -e DEPLOYMENT_MODE=kubernetes \
+  -e SELENIUM_GRID__USERNAME=USER \
+  -e SELENIUM_GRID__PASSWORD=CHANGE_ME \
+  -e SELENIUM_GRID__VNC_PASSWORD=CHANGE_ME \
+  -e SELENIUM_GRID__VNC_VIEW_ONLY=false \
+  -e SELENIUM_GRID__MAX_BROWSER_INSTANCES=4 \
+  -e SELENIUM_GRID__SE_NODE_MAX_SESSIONS=1 \
+  -e KUBERNETES__KUBECONFIG=/kube/config-local-k3s \
+  -e KUBERNETES__CONTEXT=k3s-selenium-grid \
+  -e KUBERNETES__NAMESPACE=selenium-grid-dev \
+  -e KUBERNETES__SELENIUM_GRID_SERVICE_NAME=selenium-grid \
+  ghcr.io/falamarcao/mcp-selenium-grid:latest
+```
+
+#### MCP Server configuration (mcp.json)
+
+```json
+{
+  "mcpServers": {
+    "mcp-selenium-grid": {
+      "url": "http://localhost:8000",
+      "headers": {
+        "Authorization": "Bearer CHANGE_ME"
+      }
+    }
+  }
+}
+```
+
+```json
+{
+  "mcpServers": {
+    "mcp-selenium-grid": {
+      "url": "http://localhost:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer CHANGE_ME"
+      }
+    }
+  }
+}
+```
+
+```json
+{
+  "mcpServers": {
+    "mcp-selenium-grid": {
+      "url": "http://localhost:8000/sse",
+      "headers": {
+        "Authorization": "Bearer CHANGE_ME"
+      }
+    }
+  }
+}
+```
 
 ## 🤝 Contributing
 

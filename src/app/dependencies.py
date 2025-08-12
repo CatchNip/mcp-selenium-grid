@@ -11,6 +11,7 @@ from fastapi.security import (
     HTTPBearer,
 )
 
+from app.common.logger import logger
 from app.core.settings import Settings
 
 
@@ -21,7 +22,7 @@ def get_settings() -> Settings:
 
 
 # HTTP Bearer token setup
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 basic_auth_scheme = HTTPBasic(auto_error=True)
 
 
@@ -45,6 +46,20 @@ async def verify_token(
     Raises:
         HTTPException: 401 if the token is invalid or missing.
     """
+
+    # If API_TOKEN is empty, skip auth (allow access)
+    if settings.API_TOKEN.get_secret_value() == "SERVER_AUTH_DISABLED":
+        logger.critical(
+            "API_TOKEN is disabled — skipping token verification, access granted as anonymous".upper()
+        )
+        return {"sub": "anonymous"}
+
+    # Check if header exists (auto_error=False)
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated",
+        )
 
     if not compare_digest(settings.API_TOKEN.get_secret_value(), credentials.credentials):
         raise HTTPException(
