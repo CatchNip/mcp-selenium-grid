@@ -31,7 +31,19 @@ The MCP Selenium Grid provides a MCP Server for creating and managing browser in
 ### 📖 Usage
 
 The MCP Selenium Grid provides a Web API for creating and managing browser instances. The server runs on `localhost:8000` and exposes MCP endpoints at `/mcp` (Http Transport) and `/sse` (Server Sent Events).
-> Note: All requests to the server root `http://localhost:8000` will be redirected to either `/mcp` or `/sse` endpoints, depending on the request.
+> Note: All requests to the server root `http://localhost:8000` will be redirected to either `/mcp` or `/sse` endpoints, depending on the request, but you can choose to use directly `/mcp` (Http Transport) or `/sse` (Server Sent Events) endpoints.
+
+### Known Issues & Limitations
+
+- When you use [STDIO transport](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#stdio) with the `--stdio` flag, the MCP Servers do not shut down the same way they do in the terminal. To clean up resources and remove containers or pods, run:
+
+    ```bash
+    uv run mcp-selenium-grid clean
+    ```
+
+    ```bash
+    uv run mcp-selenium-grid clean -d kubernetes
+    ```
 
 ### MCP Client Configuration
 
@@ -46,7 +58,8 @@ For Docker-based deployment, ensure Docker is running and use the Docker configu
       "command": "uvx",
       "args": ["mcp-selenium-grid", "server", "run",
         "--host", "127.0.0.1",
-        "--port", "8000"
+        "--port", "8000",
+        "--stdio",
       ],
       "env": {
         "AUTH_ENABLED": "false",
@@ -57,7 +70,8 @@ For Docker-based deployment, ensure Docker is running and use the Docker configu
         "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
         "SELENIUM_GRID__VNC_VIEW_ONLY": "false",
         "SELENIUM_GRID__MAX_BROWSER_INSTANCES": "4",
-        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": "1"
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": "1",
+        "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER": "true"
       }
     }
   }
@@ -85,7 +99,7 @@ k3s --version
 sudo systemctl start k3s
 ```
 
-###### Create K3s Kubernetes Context (Optional)
+###### Create K3s Kubernetes Context
 
 After installing K3s, you might want to create a dedicated `kubectl` context for it:
 
@@ -133,7 +147,8 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
       "command": "uvx",
       "args": ["mcp-selenium-grid", "server", "run",
         "--host", "127.0.0.1",
-        "--port", "8000"
+        "--port", "8000",
+        "--stdio",
       ],
       "env": {
         "AUTH_ENABLED": "false",
@@ -148,7 +163,8 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
         "KUBERNETES__KUBECONFIG": "~/.kube/config-local-k3s",
         "KUBERNETES__CONTEXT": "k3s-selenium-grid",
         "KUBERNETES__NAMESPACE": "selenium-grid-dev",
-        "KUBERNETES__SELENIUM_GRID_SERVICE_NAME": "selenium-grid"
+        "KUBERNETES__SELENIUM_GRID_SERVICE_NAME": "selenium-grid",
+        "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER": "true"
       }
     }
   }
@@ -165,9 +181,10 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
         "-i",
         "--rm",
         "--init",
-        "-p", "8000:80",
+        "--network=host",
+        "-v", "/home/user/.kube/config-local-k3s:/.kube/config-local-k3s:ro", // path to your kubeconfig file
         "-e", "AUTH_ENABLED=false",
-        "-e", "ALLOWED_ORIGINS=[\"http://127.0.0.1:8000\"]",
+        "-e", "ALLOWED_ORIGINS=[\\\"http://127.0.0.1:8000\\\"]",
         "-e", "DEPLOYMENT_MODE=kubernetes", // required for docker
         "-e", "SELENIUM_GRID__USERNAME=USER",
         "-e", "SELENIUM_GRID__PASSWORD=CHANGE_ME",
@@ -175,11 +192,13 @@ uvx mcp-selenium-grid helm uninstall --delete-namespace
         "-e", "SELENIUM_GRID__VNC_VIEW_ONLY=false",
         "-e", "SELENIUM_GRID__MAX_BROWSER_INSTANCES=4",
         "-e", "SELENIUM_GRID__SE_NODE_MAX_SESSIONS=1",
-        "-e", "KUBERNETES__KUBECONFIG=/kube/config-local-k3s",
+        "-e", "KUBERNETES__KUBECONFIG=/.kube/config-local-k3s", // path to your kubeconfig file
+        "-e", "KUBERNETES__USE_HOST_DOCKER_INTERNAL=true",
         "-e", "KUBERNETES__CONTEXT=k3s-selenium-grid",
         "-e", "KUBERNETES__NAMESPACE=selenium-grid-dev",
         "-e", "KUBERNETES__SELENIUM_GRID_SERVICE_NAME=selenium-grid",
-        "ghcr.io/falamarcao/mcp-selenium-grid:latest"
+        "-e", "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=true",
+        "ghcr.io/catchnip/mcp-selenium-grid:latest"
       ]
     }
   }
@@ -210,13 +229,18 @@ API_TOKEN=CHANGE_ME uvx mcp-selenium-grid server run --host 127.0.0.1 --port 800
 Default args
 
 ```bash
-docker run -i --rm --init -p 8000:80 ghcr.io/falamarcao/mcp-selenium-grid:latest
+docker run -i --rm --init --network=host \
+  -v ~/.kube/config-local-k3s:/kube/config-local-k3s:ro \
+  -e KUBERNETES__KUBECONFIG=/kube/config-local-k3s \
+  ghcr.io/catchnip/mcp-selenium-grid:latest
 ```
 
 Custom args
 
 ```bash
-docker run -i --rm --init -p 8000:80 \
+docker run -i --rm --init \
+  --network=host \
+  -v ~/.kube/config-local-k3s:/kube/config-local-k3s:ro \
   -e API_TOKEN=CHANGE_ME \
   -e ALLOWED_ORIGINS='["http://127.0.0.1:8000"]' \
   -e DEPLOYMENT_MODE=kubernetes \
@@ -227,11 +251,15 @@ docker run -i --rm --init -p 8000:80 \
   -e SELENIUM_GRID__MAX_BROWSER_INSTANCES=4 \
   -e SELENIUM_GRID__SE_NODE_MAX_SESSIONS=1 \
   -e KUBERNETES__KUBECONFIG=/kube/config-local-k3s \
+  --add-host=host.docker.inte.rnal:host-gateway \
+  -e KUBERNETES__USE_HOST_DOCKER_INTERNAL=true \
   -e KUBERNETES__CONTEXT=k3s-selenium-grid \
   -e KUBERNETES__NAMESPACE=selenium-grid-dev \
   -e KUBERNETES__SELENIUM_GRID_SERVICE_NAME=selenium-grid \
-  ghcr.io/falamarcao/mcp-selenium-grid:latest
+  ghcr.io/catchnip/mcp-selenium-grid:latest
 ```
+
+> Note: All environment variables have default values.
 
 #### MCP Server configuration (mcp.json)
 

@@ -2,7 +2,7 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi_mcp.transport.http import FastApiHttpSessionManager
 
-from .logger import logger
+from ..common.logger import logger
 
 
 async def handle_fastapi_request(

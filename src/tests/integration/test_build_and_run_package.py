@@ -8,11 +8,6 @@ import pytest
 from app.core.settings import Settings
 from httpx import Client, codes
 
-from tests.conftest import create_cmd_fixture
-
-uv_path = create_cmd_fixture("uv")
-uvx_path = create_cmd_fixture("uvx")
-
 
 def is_port_open(host: str, port: int) -> bool:
     with socket(AF_INET, SOCK_STREAM) as sock:

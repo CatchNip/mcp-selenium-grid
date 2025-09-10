@@ -7,8 +7,11 @@ message: "If you use this software, please cite it as below."
 type: software
 authors:
   - given-names: Marco
-    email: falamarcao@gmail.com
-repository-code: "https://github.com/Falamarcao/mcp-selenium-grid"
+    url: https://github.com/falamarcao
+  - name: CatchNip
+    type: organization
+    url: https://github.com/CatchNip
+repository-code: "https://github.com/catchnip/mcp-selenium-grid"
 abstract: " enables AI Agents to request and manage Selenium browser instances through a secure API. Perfect for your automated browser testing needs! "
 keywords:
   - selenium grid

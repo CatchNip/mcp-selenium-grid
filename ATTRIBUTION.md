@@ -7,7 +7,7 @@ This document lists the third-party dependencies, tools, and components used in 
 - **Project Name**: MCP Selenium Grid
 - **Author**: [Marco (falamarcao)](https://github.com/Falamarcao)
 - **License**: MIT License
-- **Repository**: [mcp-selenium-grid](https://github.com/Falamarcao/mcp-selenium-grid)
+- **Repository**: [mcp-selenium-grid](https://github.com/CatchNip/mcp-selenium-grid)
 
 ## Core Dependencies
 
@@ -229,7 +229,7 @@ If you use this project in your work, research, or other projects, please includ
   title = {MCP Selenium Grid: A Model Context Protocol Server for Browser Automation},
   author = {Marco (falamarcao)},
   year = {2025},
-  url = {https://github.com/Falamarcao/mcp-selenium-grid},
+  url = {https://github.com/CatchNip/mcp-selenium-grid},
   license = {MIT},
   note = {A REST API server for managing Selenium browser instances through MCP}
 }
@@ -242,7 +242,7 @@ If you use this project in your work, research, or other projects, please includ
 
 This project uses the following third-party components:
 
-- **MCP Selenium Grid** - [MIT License](https://github.com/Falamarcao/mcp-selenium-grid/blob/main/LICENSE)
+- **MCP Selenium Grid** - [MIT License](https://github.com/CatchNip/mcp-selenium-grid/blob/main/LICENSE)
   - Model Context Protocol server for managing Selenium Grid.
   - Created by [Marco (falamarcao)](https://github.com/Falamarcao)
 ```
@@ -251,7 +251,7 @@ This project uses the following third-party components:
 
 ```python
 # This module uses MCP Selenium Grid
-# https://github.com/Falamarcao/mcp-selenium-grid
+# https://github.com/CatchNip/mcp-selenium-grid
 # MIT License - Copyright (c) 2025 Marco (falamarcao)
 ```
 
@@ -259,16 +259,16 @@ This project uses the following third-party components:
 
 ```txt
 # MCP Selenium Grid - MIT License
-# https://github.com/Falamarcao/mcp-selenium-grid
-git+https://github.com/Falamarcao/mcp-selenium-grid.git
+# https://github.com/CatchNip/mcp-selenium-grid
+git+https://github.com/CatchNip/mcp-selenium-grid.git
 ```
 
 ### Dockerfile
 
 ```dockerfile
 # Uses MCP Selenium Grid - MIT License
-# https://github.com/Falamarcao/mcp-selenium-grid
-FROM ghcr.io/falamarcao/mcp-selenium-grid:latest
+# https://github.com/CatchNip/mcp-selenium-grid
+FROM ghcr.io/CatchNip/mcp-selenium-grid:latest
 ```
 
 ### License Compliance

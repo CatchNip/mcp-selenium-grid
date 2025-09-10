@@ -2,7 +2,7 @@ import subprocess
 
 from typer import Exit, echo
 
-from .helpers import ensure_cli_installed
+from app.cli.helpers import ensure_cli_installed
 
 
 def check_kubernetes_cluster(

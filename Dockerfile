@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bullseye
+FROM python:3.13-slim-bookworm
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -26,7 +26,7 @@ EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD sh -c 'curl -f -H "Authorization: Bearer $API_TOKEN" http://localhost:80/health || exit 1'
+    CMD sh -c 'curl -f -H "Authorization: Bearer $API_TOKEN" http://localhost:8000/health || exit 1'
 
 # Run the application.
-CMD ["/mcp-selenium-grid/.venv/bin/fastapi", "run", "src/app/main.py", "--port", "80"]
+CMD ["/mcp-selenium-grid/.venv/bin/fastapi", "run", "src/app/main.py", "--port", "8000"]

@@ -4,15 +4,9 @@ import subprocess
 
 import typer
 
-from .helpers import ensure_cli_installed
+from app.cli.helpers import ensure_cli_installed
+
 from .kubectl import check_kubernetes_cluster
-
-
-def check_helm_installed() -> str:
-    """Check if Helm CLI is installed and return its path."""
-    return ensure_cli_installed(
-        "helm", "Please install Helm from https://helm.sh/docs/intro/install/"
-    )
 
 
 def run_helm_command(
@@ -33,7 +27,9 @@ def run_helm_command(
         typer.Exit: If the command fails or encounters an error.
     """
     # Check prerequisites before proceeding
-    helm_path = check_helm_installed()
+    helm_path = ensure_cli_installed(
+        "helm", "Please install Helm from https://helm.sh/docs/intro/install/"
+    )
     check_kubernetes_cluster(kube_context, kubeconfig)
 
     # Replace 'helm' with absolute path in cmd_args

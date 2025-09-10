@@ -30,8 +30,17 @@ When reporting issues, please include:
 
 ### Pull Request Process
 
-1. **Fork the repository** - Click the "Fork" button on GitHub
-2. **Create a feature branch** - Use a descriptive branch name:
+1. **Fork the repository `main` branch** - Click the "Fork" button on GitHub
+2. **Clone your repository to local using ssh** - `git clone git@github.com:YourGitHubUserName/mcp-selenium-grid.git`
+3. **Install the pre-commit hooks**
+
+   - This project uses pre-commit hooks configured in `.pre-commit-config.yaml` for automated code quality checks. When fresh cloned and when `.pre-commit-config.yaml` is updated, run:
+
+   ```bash
+   uv run pre-commit install && uv run pre-commit autoupdate && uv run pre-commit run --all-files
+   ```
+
+4. **Create a feature branch** - Use a descriptive branch name (be creative):
 
    ```bash
    git checkout -b feature/amazing-feature
@@ -39,11 +48,12 @@ When reporting issues, please include:
    git checkout -b docs/update-readme
    ```
 
-3. **Make your changes** - Write clean, well-documented code
-4. **Run and write tests** - Ensure everything works
-5. **Commit your changes** - Write clear, descriptive commit messages
-6. **Push to your branch**
-7. **Open a Pull Request** - Fill out the PR template
+5. **Make your changes** - Write clean, well-documented code
+6. **Run and write tests** - Ensure everything works
+7. **Commit your changes** - Write clear, descriptive commit messages
+8. **Make sure that your branch is updated with `main` branch** - keep a linear commit history, rebase if necessary
+9. **Push to your branch**
+10. **Open a Pull Request** - Fill out the PR template
 
 #### 💡 Commit Message Tips
 
@@ -84,7 +94,7 @@ When reporting issues, please include:
 
 ```bash
 # Clone the repository
-git clone git@github.com:Falamarcao/mcp-selenium-grid.git
+git clone git@github.com:catchnip/mcp-selenium-grid.git
 cd mcp-selenium-grid
 
 # Create a virtual environment and install dev/test dependencies
@@ -95,7 +105,7 @@ uv sync --all-groups --extra test
 
 This project requires a Kubernetes cluster for running tests and managing browser instances. We use K3s for local development and testing.
 
-#### Install K3s (<https://docs.k3s.io/quick-start>)
+#### 3.1 Install K3s (<https://docs.k3s.io/quick-start>)
 
 ```bash
 # Install K3s
@@ -108,7 +118,7 @@ k3s --version
 sudo systemctl start k3s
 ```
 
-#### Create K3s Kubernetes Context (Optional)
+#### 3.2 Create K3s Kubernetes Context (Optional)
 
 After installing K3s, you might want to create a dedicated `kubectl` context for it:
 
@@ -126,7 +136,7 @@ kubectl config set-context k3s-selenium-grid \
   --user=default
 ```
 
-#### Deploy Selenium Grid
+#### 3.3 Deploy Selenium Grid
 
 ```bash
 # See command help
@@ -166,7 +176,7 @@ uv run fastapi dev src/app/main.py
 uv run fastapi run src/app/main.py
 ```
 
-### 5. Running Tests
+### 5. Testing 🧪
 
 ```bash
 # Run all tests
@@ -182,9 +192,37 @@ uv run scripts/rich-coverage.py
 uv run scripts/rich-coverage.py --format=html
 ```
 
-#### 🧪 CI & Workflow Testing
+#### 5.1 Inspect MCP Server
 
-- To test GitHub Actions workflows locally, see [`.github/README.md`](.github/README.md) for simple act usage instructions.
+Use MCP Inspector to inspect the mcp server [mcp-dev.json](mcp-dev.json)
+
+```bash
+npx @modelcontextprotocol/inspector --config mcp-dev.json --server prod
+```
+
+```bash
+npx @modelcontextprotocol/inspector --config mcp-dev.json --server prod-k8s
+```
+
+```bash
+npx @modelcontextprotocol/inspector --config mcp-dev.json --server dev
+```
+
+```bash
+docker build -t ghcr.io/catchnip/mcp-selenium-grid:latest .
+```
+
+```bash
+npx @modelcontextprotocol/inspector --config mcp-dev.json --server docker
+```
+
+> Requires node installed. I recommend using [VOLTA - The Hassle-Free JavaScript Tool Manager](https://volta.sh/)
+
+#### 5.2 CI & Workflow Testing
+
+- To test GitHub Actions workflows locally, see [`.github/workflows/README.md`](.github/workflows/README.md) for simple act usage instructions.
+
+> Attention: Some actions like GitHub Actions upload/download artifacts don't work well when testing using `act`. Unsupported functionality: <https://nektosact.com/not_supported.html>
 
 ### 6. Code Quality
 
@@ -194,7 +232,7 @@ uv run mypy .                 # Type check
 uv run ruff format .          # Format
 ```
 
-This project uses pre-commit hooks configured in `.pre-commit-config.yaml` for automated code quality checks. If the pre-commit configuration is updated, run:
+This project uses pre-commit hooks configured in `.pre-commit-config.yaml` for automated code quality checks. If `.pre-commit-config.yaml` is updated, run:
 
 ```bash
 uv run pre-commit install && uv run pre-commit autoupdate && uv run pre-commit run --all-files

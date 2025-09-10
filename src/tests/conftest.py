@@ -1,10 +1,10 @@
 """Pytest configuration file."""
 
-from shutil import which
 from typing import Any, Callable, Generator, cast
 from unittest.mock import MagicMock
 
 import pytest
+from app.common.shutil import which_or_raise
 from app.core.settings import Settings
 from app.dependencies import get_settings
 from app.services.selenium_hub import SeleniumHub
@@ -252,13 +252,13 @@ def selenium_hub_basic_auth_headers() -> BasicAuth:
 def create_cmd_fixture(name: str) -> Callable[[], str]:
     @pytest.fixture(name=name + "_path")
     def _fixture() -> str:
-        path: str | None = which(name)
-        if path is None:
-            pytest.skip(f"Executable '{name}' not found in PATH")
-        return path
+        return which_or_raise(name)
 
     return _fixture
 
+
+uv_path = create_cmd_fixture("uv")
+uvx_path = create_cmd_fixture("uvx")
 
 # ==============================================================================
 # E2E TEST FIXTURES

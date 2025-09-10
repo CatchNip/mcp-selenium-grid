@@ -1,0 +1,123 @@
+{
+  "mcpServers": {
+    "prod": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcp-selenium-grid",
+        "server",
+        "run",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--stdio"
+      ],
+      "env": {
+        "AUTH_ENABLED": "false",
+        "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
+        "DEPLOYMENT_MODE": "docker",
+        "SELENIUM_GRID__USERNAME": "USER",
+        "SELENIUM_GRID__PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_VIEW_ONLY": "false",
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": "4",
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": "1",
+        "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER": "true"
+      }
+    },
+    "prod-k8s": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcp-selenium-grid",
+        "server",
+        "run",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--stdio"
+      ],
+      "env": {
+        "AUTH_ENABLED": "false",
+        "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
+        "DEPLOYMENT_MODE": "kubernetes",
+        "SELENIUM_GRID__USERNAME": "USER",
+        "SELENIUM_GRID__PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_VIEW_ONLY": "false",
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": "4",
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": "1",
+        "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER": "true"
+      }
+    },
+    "dev": {
+      "command": "uv",
+      "args": [
+        "run",
+        "mcp-selenium-grid",
+        "server",
+        "dev",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--stdio"
+      ],
+      "env": {
+        "AUTH_ENABLED": "false",
+        "ALLOWED_ORIGINS": "[\"http://127.0.0.1:8000\"]",
+        "DEPLOYMENT_MODE": "docker",
+        "SELENIUM_GRID__USERNAME": "USER",
+        "SELENIUM_GRID__PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_PASSWORD": "CHANGE_ME",
+        "SELENIUM_GRID__VNC_VIEW_ONLY": "false",
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES": "4",
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS": "1",
+        "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER": "true"
+      }
+    },
+    "docker": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-v",
+        "/home/user/.kube/config-local-k3s:/kube/config-local-k3s:ro",
+        "-i",
+        "--rm",
+        "--init",
+        "--network=host",
+        "-e",
+        "IS_STDIO_ENABLED=true",
+        "-e",
+        "AUTH_ENABLED=false",
+        "-e",
+        "ALLOWED_ORIGINS=[\\\"http://127.0.0.1:8000\\\"]",
+        "-e",
+        "DEPLOYMENT_MODE=kubernetes",
+        "-e",
+        "SELENIUM_GRID__USERNAME=USER",
+        "-e",
+        "SELENIUM_GRID__PASSWORD=CHANGE_ME",
+        "-e",
+        "SELENIUM_GRID__VNC_PASSWORD=CHANGE_ME",
+        "-e",
+        "SELENIUM_GRID__VNC_VIEW_ONLY=false",
+        "-e",
+        "SELENIUM_GRID__MAX_BROWSER_INSTANCES=4",
+        "-e",
+        "SELENIUM_GRID__SE_NODE_MAX_SESSIONS=1",
+        "-e",
+        "KUBERNETES__KUBECONFIG=/kube/config-local-k3s",
+        "-e",
+        "KUBERNETES__CONTEXT=k3s-selenium-grid",
+        "-e",
+        "KUBERNETES__NAMESPACE=selenium-grid-dev",
+        "-e",
+        "KUBERNETES__SELENIUM_GRID_SERVICE_NAME=selenium-grid",
+        "ghcr.io/catchnip/mcp-selenium-grid:latest"
+      ]
+    }
+  }
+}

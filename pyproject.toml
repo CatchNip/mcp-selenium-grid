@@ -13,28 +13,48 @@
 
 [project]
 name = "mcp-selenium-grid"
-version = "0.1.0.dev7"
+version = "0.1.0.dev8"
 description = "MCP Server for managing Selenium Grid"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
 authors = [
-    { name = "falamarcao" }
+    { name = "falamarcao <https://github.com/falamarcao>"},
+    { name = "CatchNip <https://github.com/CatchNip>"}
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",  
+    "Typing :: Typed",
+    "Framework :: FastAPI",
+    "Framework :: Pydantic"
 ]
 dependencies = [
-    "fastapi[standard]>=0.115.14", # Web framework
-    "fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.8",
-    "fastapi-mcp>=0.3.4", # MCP integration for FastAPI
+    "fastapi[standard]>=0.116.1", # Web framework
+    "fastapi-cli[standard-no-fastapi-cloud-cli]>=0.0.11",
+    "fastapi-mcp>=0.4.0", # MCP integration for FastAPI
     "pydantic>=2.11.7", # Data validation
-    "pydantic-settings>=2.10.1", # Settings management (latest is 2.2.1)
+    "pydantic-settings>=2.10.1", # Settings management
     "docker>=7.1.0", # Docker API client
-    "kubernetes>=33.1.0", # Kubernetes API client3
-    "typer>=0.16.0",
-    "prometheus-client>=0.22.1", # Prometheus metrics (latest is 0.20.0)
+    "kubernetes>=33.1.0", # Kubernetes API client
+    "typer>=0.17.4",
+    "prometheus-client>=0.22.1", # Prometheus metrics
     "prometheus-fastapi-instrumentator>=7.1.0",
     "httpx>=0.28.1",
     "psutil>=7.0.0",
     "uvicorn>=0.35.0",
+    "fastmcp[stdio]>=2.12.2",
+    "asgi-lifespan>=2.1.0",
+    "anyio>=4.10.0",
 ]
 
 [project.scripts]
@@ -42,22 +62,22 @@ mcp-selenium-grid = "app.__main__:main"
 
 [tool.uv]
 dev-dependencies = [
-    "ruff>=0.12.2",
-    "mypy>=1.16.1",
-    "pre-commit>=4.2.0",
-    "types-docker>=7.1.0.20250523",
-    "types-pyyaml>=6.0.12.20250516",
+    "ruff>=0.12.12",
+    "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
+    "types-docker>=7.1.0",
+    "types-pyyaml>=6.0.12",
     "kubernetes-stubs-elephant-fork>=33.1.0",
-    "types-psutil>=7.0.0.20250601",
+    "types-psutil>=7.0.0",
 ]
 
 [project.optional-dependencies]
 test = [
-    "pytest>=8.4.1",
-    "pytest-mock>=3.14.1",
-    "pytest-asyncio>=1.0.0", # Parallel test execution
-    "pytest-sugar>=1.0.0",
-    "coverage>=7.10.2",
+    "pytest>=8.4.2",
+    "pytest-mock>=3.15.0",
+    "pytest-asyncio>=1.1.0", # Parallel test execution
+    "pytest-sugar>=1.1.1",
+    "coverage>=7.10.6",
     "pytest-timeout>=2.4.0",
 ]
 

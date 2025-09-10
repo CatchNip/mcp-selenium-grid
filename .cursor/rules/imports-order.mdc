@@ -1,0 +1,7 @@
+---
+description: 'Ignore unsorted/unformatted import block linting'
+globs: ['*.py']
+alwaysApply: false
+when: 'Import block is un-sorted or un-formatted'
+do: 'ignore'
+---

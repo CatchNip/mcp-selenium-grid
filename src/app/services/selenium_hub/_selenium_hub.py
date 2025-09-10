@@ -134,18 +134,24 @@ class SeleniumHub:
         return await self._manager.ensure_hub_running()
 
     @track_hub_metrics()
-    async def wait_for_hub_healthy(self, check_interval: float = 1.0) -> bool:
+    async def wait_for_hub_healthy(
+        self,
+        wait_before_check: float = 0.0,
+        check_interval: float = 1.0,
+    ) -> bool:
         """
         Wait for the hub to be healthy and reachable.
         Uses asyncio.timeout() to limit the total wait time.
 
         Args:
+            wait_before_check (float): Time before start checks.
             check_interval (float): Time between health checks in seconds.
 
         Returns:
             bool: True if the hub becomes healthy within the timeout, False otherwise.
         """
         try:
+            await asyncio.sleep(wait_before_check)
             async with asyncio.timeout(30):  # 30 second default timeout
                 while True:
                     if await self.check_hub_health():

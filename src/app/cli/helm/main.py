@@ -10,8 +10,10 @@ import typer
 
 from app.core.settings import Settings
 
+from ..constants import CLI_TITLE
 from .cli.helm import run_helm_command
 from .cli.kubectl import delete_namespace
+from .constants import HELM_CLI_DESC, HELM_SHORT_HELP
 from .helpers import map_config_to_helm_values
 
 
@@ -24,7 +26,8 @@ def create_application() -> typer.Typer:  # noqa: PLR0915
     """Create Typer application for Helm Selenium Grid deployment."""
     app = typer.Typer(
         name="helm-selenium-grid",
-        help="Deploy Selenium Grid using Helm",
+        help=f"{CLI_TITLE} - {HELM_SHORT_HELP}\n{HELM_CLI_DESC}",
+        short_help=HELM_SHORT_HELP,
     )
     settings = get_settings()
 
